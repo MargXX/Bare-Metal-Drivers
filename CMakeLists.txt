@@ -22,9 +22,15 @@ add_executable(gpio_test
     GPIO/gpio_test.c # main() here
 )
 
+# ensures an elf is made with the name gpio_test.elf instead of just gpio_test
+set_target_properties(gpio_test PROPERTIES OUTPUT_NAME "gpio_test.elf")
+
 # set up linker
 # linker stitches together .o files(object) and .a files(libraries) to create executable
-target_link_libraries(gpio_test pico_stdlib)
+target_link_libraries(gpio_test 
+    pico_stdlib
+    )
 
 # generate uf2 file for flashing since working w/ pico
-pico_add_extra_outputs(gpio_test)
+# pico_add_extra_outputs(gpio_test)
+# using openOCD for flashing instead of picotool, so not generating uf2 files

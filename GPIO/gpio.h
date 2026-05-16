@@ -1,12 +1,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-// Set the function of a pin to SIO (software-controlled GPIO)
-// You need this before using a pin as GPIO rather than I2C/SPI/UART
-void gpio_set_function(uint8_t pin, uint8_t function);
+
+// set the function of the GPIO pin
+bool gpio_set_function(uint8_t pin, uint8_t function);
 
 // Set pin direction: 1 = output, 0 = input
-void gpio_set_direction(uint8_t pin, uint8_t direction);
+bool gpio_set_direction(uint8_t pin, uint8_t direction);
 
 // Set output value high or low
 void gpio_put(uint8_t pin, bool value);
@@ -19,4 +19,5 @@ bool gpio_get(uint8_t pin);
 void gpio_set(uint8_t pin);
 void gpio_clear(uint8_t pin);
 void gpio_toggle(uint8_t pin);
+bool gpio_enable(uint8_t pin);
 
