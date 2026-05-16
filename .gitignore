@@ -36,6 +36,10 @@
 *.x86_64
 *.hex
 
+build/
+*.uf2
+*.bin
+
 # Debug files
 *.dSYM/
 *.su

@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdbool.h>
 
 // Set the function of a pin to SIO (software-controlled GPIO)
 // You need this before using a pin as GPIO rather than I2C/SPI/UART
