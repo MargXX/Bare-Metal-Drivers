@@ -4,7 +4,7 @@ A from-scratch bare-metal driver library in C, targeting ARM Cortex-M microcontr
 
 The goal is a layered driver architecture that separates MCU-specific peripheral access from device logic, so the same sensor drivers can run on different host MCUs. No vendor HAL — all peripheral configuration is written directly against the reference manual.
 
-This is a personal learning project. Active development starts June 2026.
+This is a personal learning project. 
 
 ---
 
