@@ -24,7 +24,7 @@
 // ticks per millisecond — update if changing clock source
 // 1MHz external reference (default): 1000
 // 125MHz processor clock: 125000
-#define SYSTICK_TICKS_PER_MS    1000U
+#define SYSTICK_TICKS_PER_MS    125000U
 
 // returns false if error, true if functioned correctly
 
@@ -54,6 +54,6 @@ bool bm_systick_timeout_elapsed(uint32_t start_ms, uint32_t timeout_ms);
 
 // SysTick exception handler — must be defined in systick.c with this exact name
 // increments the internal volatile tick counter each millisecond
-void SysTick_Handler(void);
+void isr_systick(void);
 
 #endif /* SYSTICK_H */

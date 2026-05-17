@@ -61,6 +61,7 @@ bool bm_gpio_put(uint8_t pin, bool value) {
 // Read input value (returns 0 or 1)
 bool bm_gpio_get(uint8_t pin, bool *value) {
     if (pin > MAX_PIN_NUMBER) {return false;} // Invalid pin number
+    if (value == NULL) {return false;}
 
     uint32_t mask = 1u << pin; 
     *value =  (SIO[GPIO_IN] & mask) != 0;

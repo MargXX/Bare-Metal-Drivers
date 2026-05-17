@@ -59,7 +59,7 @@ bool bm_systick_delay_ms(uint32_t ms) {
 // returns elapsed milliseconds since init or last reset via ms_out
 // rolls over after ~49.7 days
 bool bm_systick_get_ms(uint32_t *ms_out) {
-    if (ms_out == NULL) return false;
+    if (ms_out == NULL) {return false;}
     *ms_out = systick_ms_count;
     return true;
 }
@@ -75,6 +75,6 @@ bool bm_systick_timeout_elapsed(uint32_t start_ms, uint32_t timeout_ms) {
 
 // SysTick exception handler — must be defined in systick.c with this exact name
 // increments the internal volatile tick counter each millisecond
-void SysTick_Handler(void) {
+void isr_systick(void) {
     systick_ms_count++;
 }
