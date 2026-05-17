@@ -40,7 +40,7 @@ typedef struct {
 volatile gpio_pin_regs_t *io_bank0 = (volatile gpio_pin_regs_t *)0x40014000;
 volatile uint32_t *sio = (volatile uint32_t *)0xd0000000;
 
-bool gpio_set_function(uint8_t pin, uint8_t function) {
+bool bm_gpio_set_function(uint8_t pin, uint8_t function) {
     // Implementation to set the function of the GPIO pin
     // returns true if successful, false if invalid pin or function
 
@@ -60,7 +60,7 @@ bool gpio_set_function(uint8_t pin, uint8_t function) {
 }
 
 // Set pin direction: 1 = output, 0 = input
-bool gpio_set_direction(uint8_t pin, uint8_t direction) {
+bool bm_gpio_set_direction(uint8_t pin, uint8_t direction) {
 
     if (pin > MAX_PIN_NUMBER) {
         return false; // Invalid pin number
@@ -81,7 +81,7 @@ bool gpio_set_direction(uint8_t pin, uint8_t direction) {
 }
 
 // Set output value high or low, true for high, false for low
-bool gpio_put(uint8_t pin, bool value) {
+bool bm_gpio_put(uint8_t pin, bool value) {
 
     if (pin > MAX_PIN_NUMBER) {return false;} // Invalid pin number
 
@@ -97,7 +97,7 @@ bool gpio_put(uint8_t pin, bool value) {
 }
 
 // Read input value (returns 0 or 1)
-bool gpio_get(uint8_t pin, bool *value) {
+bool bm_gpio_get(uint8_t pin, bool *value) {
     if (pin > MAX_PIN_NUMBER) {return false;} // Invalid pin number
 
     uint32_t mask = 1u << pin; 
@@ -107,16 +107,16 @@ bool gpio_get(uint8_t pin, bool *value) {
 }
 
 //enables GPIO on input with SIO
-bool gpio_enable(uint8_t pin) {
+bool bm_gpio_enable(uint8_t pin) {
 
     if (pin > MAX_PIN_NUMBER) {return false;} // Invalid pin number
 
-    return gpio_set_function(pin, GPIO_FUNC_SIO) && 
-    gpio_set_direction(pin, GPIO_DIR_INPUT);
+    return bm_gpio_set_function(pin, GPIO_FUNC_SIO) && 
+    bm_gpio_set_direction(pin, GPIO_DIR_INPUT);
 }
 
 //force pin high
-bool gpio_set(uint8_t pin) {
+bool bm_gpio_set(uint8_t pin) {
 
     if (pin > MAX_PIN_NUMBER) {return false;} // Invalid pin number
 
@@ -128,7 +128,7 @@ bool gpio_set(uint8_t pin) {
 }
 
 //force pin low
-bool gpio_clear(uint8_t pin) {
+bool bm_gpio_clear(uint8_t pin) {
 
     if (pin > MAX_PIN_NUMBER) {return false;} // Invalid pin number
 
@@ -140,7 +140,7 @@ bool gpio_clear(uint8_t pin) {
 }
 
 //flips pin
-bool gpio_toggle(uint8_t pin) {
+bool bm_gpio_toggle(uint8_t pin) {
 
     if (pin > MAX_PIN_NUMBER) {return false;} // Invalid pin number
 
