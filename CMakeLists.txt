@@ -17,8 +17,14 @@ pico_sdk_init() #must be after project call
 # will need separate executibles per test
 # executibles are elf/uf2 etc. type files
 # remember to add all required .c files to the executible, including dependencies(Ex: i2c.c for bmp390 executable)
+# add_executable(systick_test
+#     SysTick/systick.c
+#     SysTick/systick_test.c # main() here
+# )
+
 add_executable(gpio_test
     GPIO/gpio.c
+    SysTick/systick.c
     GPIO/gpio_test.c # main() here
 )
 
@@ -27,9 +33,8 @@ set_target_properties(gpio_test PROPERTIES OUTPUT_NAME "gpio_test.elf")
 
 # set up linker
 # linker stitches together .o files(object) and .a files(libraries) to create executable
-target_link_libraries(gpio_test
-    pico_runtime
-)
+target_link_libraries(gpio_test pico_runtime)
+# target_link_libraries(systick_test pico_runtime)
 
 # generate uf2 file for flashing since working w/ pico
 # pico_add_extra_outputs(gpio_test)
