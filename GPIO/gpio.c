@@ -17,6 +17,13 @@
 #define GPIO_DIR_INPUT  0
 #define GPIO_DIR_OUTPUT 1
 
+#define GPIO_IN 1
+
+#define GPIO_OUT 4
+#define GPIO_OUT_SET 5
+#define GPIO_OUT_CLR 6
+#define GPIO_OUT_XOR 7
+
 #define GPIO_OE  8
 #define GPIO_OE_SET  9
 #define GPIO_OE_CLR  10
@@ -69,6 +76,77 @@ bool gpio_set_direction(uint8_t pin, uint8_t direction) {
     } else {
         sio[GPIO_OE_CLR] = mask;
     }
+
+    return true;
+}
+
+// Set output value high or low, true for high, false for low
+bool gpio_put(uint8_t pin, bool value) {
+
+    if (pin > MAX_PIN_NUMBER) {return false;} // Invalid pin number
+
+    //setting logic
+    uint32_t mask = 1u << pin; 
+    if (value) {
+        sio[GPIO_OUT_SET] = mask;
+    } else {
+        sio[GPIO_OUT_CLR] = mask;
+    }
+
+    return true;
+}
+
+// Read input value (returns 0 or 1)
+bool gpio_get(uint8_t pin, bool *value) {
+    if (pin > MAX_PIN_NUMBER) {return false;} // Invalid pin number
+
+    uint32_t mask = 1u << pin; 
+    *value =  (sio[GPIO_IN] & mask) != 0;
+
+    return true;
+}
+
+//enables GPIO on input with SIO
+bool gpio_enable(uint8_t pin) {
+
+    if (pin > MAX_PIN_NUMBER) {return false;} // Invalid pin number
+
+    return gpio_set_function(pin, GPIO_FUNC_SIO) && 
+    gpio_set_direction(pin, GPIO_DIR_INPUT);
+}
+
+//force pin high
+bool gpio_set(uint8_t pin) {
+
+    if (pin > MAX_PIN_NUMBER) {return false;} // Invalid pin number
+
+    //setting logic
+    uint32_t mask = 1u << pin; 
+    sio[GPIO_OUT_SET] = mask;
+
+    return true;
+}
+
+//force pin low
+bool gpio_clear(uint8_t pin) {
+
+    if (pin > MAX_PIN_NUMBER) {return false;} // Invalid pin number
+
+    //setting logic
+    uint32_t mask = 1u << pin; 
+    sio[GPIO_OUT_CLR] = mask;
+
+    return true;
+}
+
+//flips pin
+bool gpio_toggle(uint8_t pin) {
+
+    if (pin > MAX_PIN_NUMBER) {return false;} // Invalid pin number
+
+    //setting logic
+    uint32_t mask = 1u << pin; 
+    sio[GPIO_OUT_XOR] = mask;
 
     return true;
 }
