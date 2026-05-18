@@ -4,7 +4,7 @@
 
 int main() {
     bm_gpio_set_function(25, GPIO_FUNC_SIO);
-    bm_gpio_set_direction(25, 1);
+    bm_gpio_set_direction(25, GPIO_DIR_OUTPUT);
     bm_gpio_put(25, false);
     bm_systick_init();
 
