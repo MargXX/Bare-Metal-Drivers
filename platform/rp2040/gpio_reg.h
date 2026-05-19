@@ -10,10 +10,6 @@
 
 #include <stdint.h>
 
-// Pin and Function Limits
-#define MAX_PIN_NUMBER      29  // Pico exposes 30 pins, numbered 0-29
-#define MAX_FUNCTION_NUMBER 9   // functions 0-9
-
 //GPIO pin registers come in pairs: status/ctrl
 typedef struct {  
     uint32_t status;
@@ -28,18 +24,6 @@ typedef struct {
 
 #define IO_BANK0    ((volatile gpio_pin_regs_t *)IO_BANK0_BASE)
 #define SIO         ((volatile uint32_t *)SIO_BASE)
-
-// GPIO Function Select
-#define GPIO_FUNC_SPI0  1
-#define GPIO_FUNC_UART  2
-#define GPIO_FUNC_I2C   3
-#define GPIO_FUNC_PWM   4
-#define GPIO_FUNC_SIO   5
-#define GPIO_FUNC_PIO0  6
-#define GPIO_FUNC_PIO1  7
-#define GPIO_FUNC_CLOCK 8
-#define GPIO_FUNC_USB   9
-#define GPIO_FUNC_NULL  31
 
 // GPIO Direction
 #define GPIO_DIR_INPUT  0

@@ -19,7 +19,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include "systick_reg.h"
 
 // ticks per millisecond — update if changing clock source
 // 1MHz external reference (default): 1000

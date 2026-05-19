@@ -39,3 +39,9 @@ target_link_libraries(gpio_test pico_runtime)
 # generate uf2 file for flashing since working w/ pico
 # pico_add_extra_outputs(gpio_test)
 # using openOCD for flashing instead of picotool, so not generating uf2 files
+
+
+set(PLATFORM "rp2040")
+target_include_directories(gpio_test PRIVATE
+    ${CMAKE_SOURCE_DIR}/platform/${PLATFORM}
+)

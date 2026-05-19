@@ -11,11 +11,12 @@
 #ifndef GPIO_H
 #define GPIO_H
 
+
+
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include "gpio_reg.h"
-
+#include "gpio_platform.h"
 
 
 // returns false if error, true if functioned correctly
