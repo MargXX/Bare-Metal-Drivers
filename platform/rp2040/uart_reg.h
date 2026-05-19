@@ -63,9 +63,6 @@ typedef struct {
     volatile uint32_t UARTPCellID[4];   // 0xFF0-0xFFC PrimeCell ID Registers
 } uart_regs_t;
 
-// Register pointer for the first UART peripheral (UART0) — use to access registers by name, e.g. UART->UARTDR, index for UART1
-#define UART_NUM_PERIPHERALS 2
-
 static volatile uart_regs_t * const uart_peripherals[] = {
     (volatile uart_regs_t *)UART0_BASE,
     (volatile uart_regs_t *)UART1_BASE,

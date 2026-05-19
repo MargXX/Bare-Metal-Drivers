@@ -25,9 +25,7 @@ typedef struct {
 #define IO_BANK0    ((volatile gpio_pin_regs_t *)IO_BANK0_BASE)
 #define SIO         ((volatile uint32_t *)SIO_BASE)
 
-// GPIO Direction
-#define GPIO_DIR_INPUT  0
-#define GPIO_DIR_OUTPUT 1
+
 
 // SIO GPIO Register Offsets
 #define GPIO_IN      1
