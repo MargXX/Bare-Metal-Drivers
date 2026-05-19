@@ -23,7 +23,7 @@ bool bm_uart_init(uint8_t *uart_num, uint32_t baud_rate, uint8_t tx_pin, uint8_t
     if (peripheral == 255) { return false; } //invalid pin pair
     
     //disable UART to allow configuration
-    uart_peripherals[*uart_num]->UARTCR &= ~UARTCR_UARTEN_Msk; 
+    uart_peripherals[*uart_num]->UARTCR &= ~(UARTCR_UARTEN_Msk | UARTCR_SIREN_Msk | UARTCR_SIRLP_Msk); //also disable SIR low power mode just in case, as recommended by datasheet
     // calculate and set baud rate divisors in UARTIBRD and UARTFBRD
     uint32_t ibrd = UARTCLK / (16 * baud_rate); 
     uint32_t fbrd = ((UARTCLK % (16 * baud_rate)) * 64 + 8 * baud_rate) / (16 * baud_rate);
@@ -34,13 +34,15 @@ bool bm_uart_init(uint8_t *uart_num, uint32_t baud_rate, uint8_t tx_pin, uint8_t
     bm_gpio_set_function(tx_pin, GPIO_FUNC_UART);
     bm_gpio_set_function(rx_pin, GPIO_FUNC_UART);
     // enable FIFOs, set word length to 8 bits, parity and stop bits to defaults (no parity, 1 stop bit)
+    uart_peripherals[*uart_num]->UARTLCR_H = UARTLCR_H_FEN_Msk | UARTLCR_H_WLEN_8BIT;
     // enable UART, TX, and RX
+    uart_peripherals[*uart_num]->UARTCR |= UARTCR_UARTEN_Msk | UARTCR_TXE_Msk | UARTCR_RXE_Msk;
 
-    return false; //not implemented yet
+    return true; //success
 }
 
 // transmit a single byte — blocks until TX FIFO has space
-bool bm_uart_write_byte(uint8_t uart_num,uint8_t byte) {
+bool bm_uart_write_byte(uint8_t uart_num, uint8_t byte) {
     return false; //not implemented yet
 }
 

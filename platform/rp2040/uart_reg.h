@@ -37,8 +37,16 @@ static const uart_pin_pair uart_valid_pairs[] = {
 
 #define NUM_UART_PAIRS (sizeof(uart_valid_pairs) / sizeof(uart_pin_pair))
 
+// FUARTCLK ≤ 5/3 × FPCLK
+#define UARTCLK 125000000UL // 125MHz clock default
+
+#define BAUD_RATE_MIN (UARTCLK / 16 / 65535) // min baud rate is when IBRD=65535 and FBRD=63
+#define BAUD_RATE_MAX (UARTCLK / 16) // max baud rate is when IBRD=1 and FBRD=0
+
 #define UART0_BASE 0x40034000
 #define UART1_BASE 0x40038000
+
+#define RESETS_BASE 0x4000c000 
 
 //register offsets from base
 typedef struct {
@@ -50,7 +58,7 @@ typedef struct {
     volatile uint32_t UARTILPR;         // 0x20 IrDA Low-Power Counter
     volatile uint32_t UARTIBRD;         // 0x24 Integer Baud Rate Divisor
     volatile uint32_t UARTFBRD;         // 0x28 Fractional Baud Rate Divisor
-    volatile uint32_t UARTLCR;          // 0x2C Line Control Register
+    volatile uint32_t UARTLCR_H;          // 0x2C Line Control Register
     volatile uint32_t UARTCR;           // 0x30 Control Register
     volatile uint32_t UARTIFLS;         // 0x34 Interrupt FIFO Level Select
     volatile uint32_t UARTIMSC;         // 0x38 Interrupt Mask Set/Clear
@@ -68,20 +76,30 @@ static volatile uart_regs_t * const uart_peripherals[] = {
     (volatile uart_regs_t *)UART1_BASE,
 };
 
+#define RESETS_RESETS_OFFSET 0x0
+#define RESETS_RESET_DONE_OFFSET 0x8
 
-// FUARTCLK ≤ 5/3 × FPCLK
-#define UARTCLK 125000000UL // 125MHz clock default
 
-#define BAUD_RATE_MIN (UARTCLK / 16 / 65535) // min baud rate is when IBRD=65535 and FBRD=63
-#define BAUD_RATE_MAX (UARTCLK / 16) // max baud rate is when IBRD=1 and FBRD=0
 
 // Register masks
+
 #define UARTIBRD_Msk ((1UL << 16) - 1) // 16 bits for integer baud rate divisor
 #define UARTFBRD_Msk ((1UL << 6) - 1)  // 6 bits for fractional baud rate divisor
 
 #define UARTCR_UARTEN_Msk   (1UL << 0) // UART Enable
+#define UARTCR_SIREN_Msk   (1UL << 1) // SIR enable
+#define UARTCR_SIRLP_Msk   (1UL << 2) // SIR low powerEnable
 #define UARTCR_TXE_Msk  (1UL << 8) // Transmit Enable
 #define UARTCR_RXE_Msk  (1UL << 9) // Receive Enable
+
+#define UARTLCR_H_BRK_Msk (1UL << 0) // Send Break
+#define UARTLCR_H_PEN_Msk (1UL << 1) // Parity Enable
+#define UARTLCR_H_EPS_Msk (1UL << 2) // Even Parity(1) / Odd Parity(0)
+#define UARTLCR_H_STP2_Msk (1UL << 3) // Two Stop Bits Select
+#define UARTLCR_H_FEN_Msk (1UL << 4) // FIFO Enable
+#define UARTLCR_H_WLEN_Msk (3UL << 5) // Word Length (2 bits: 00=5 bits, 01=6 bits, 10=7 bits, 11=8 bits)
+
+#define UARTLCR_H_WLEN_8BIT (3UL << 5) // 11 = 8 bit word length
 
 
 

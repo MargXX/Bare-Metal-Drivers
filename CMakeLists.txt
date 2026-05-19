@@ -7,8 +7,16 @@ set(CMAKE_TOOLCHAIN_FILE ${PICO_SDK_PATH}/cmake/preload/toolchains/pico_arm_cort
 
 # device specific for now, may make more generic later
 project(RP2040_Bare_Metal_Drivers)
+
 # 11 and 17 should both work so going with 11 since it's more widely supported
 set(CMAKE_C_STANDARD 11)
+
+# include directories for all tests — allows test .c files to include headers from platform/ without needing relative paths
+# change this to point to the correct platform if switching targets, or make more generic if supporting multiple platforms in the future
+set(PLATFORM "rp2040")
+include_directories(${CMAKE_SOURCE_DIR}/platform/${PLATFORM})
+
+
 
 include(pico_sdk_import.cmake)
 pico_sdk_init() #must be after project call
@@ -17,15 +25,15 @@ pico_sdk_init() #must be after project call
 # will need separate executibles per test
 # executibles are elf/uf2 etc. type files
 # remember to add all required .c files to the executible, including dependencies(Ex: i2c.c for bmp390 executable)
-# add_executable(systick_test
-#     SysTick/systick.c
-#     SysTick/systick_test.c # main() here
-# )
-
 add_executable(gpio_test
     GPIO/gpio.c
     SysTick/systick.c
     GPIO/gpio_test.c # main() here
+)
+
+add_executable(systick_test
+    SysTick/systick.c
+    SysTick/systick_test.c # main() here
 )
 
 # ensures an elf is made with the name gpio_test.elf instead of just gpio_test
@@ -41,7 +49,3 @@ target_link_libraries(gpio_test pico_runtime)
 # using openOCD for flashing instead of picotool, so not generating uf2 files
 
 
-set(PLATFORM "rp2040")
-target_include_directories(gpio_test PRIVATE
-    ${CMAKE_SOURCE_DIR}/platform/${PLATFORM}
-)
