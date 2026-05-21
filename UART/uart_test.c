@@ -23,15 +23,17 @@ int main() {
     result = bm_uart_init(&uart_val,115200,0,1);
 
     if (result) {
+        bm_uart_write_byte(uart_val,0x55);
         bm_gpio_put(25, true);
         while(1) {
-            bm_uart_write_byte(uart_val,0x55);
+            bm_uart_write_byte(uart_val,0xF0);
         }
     } else {
         while(1) {
+            bm_uart_write_byte(uart_val,0x0F);
             bm_gpio_toggle(25);
             bm_systick_delay_ms(200);
-            bm_uart_write_byte(uart_val,0x55);
+            
         }
     }
     

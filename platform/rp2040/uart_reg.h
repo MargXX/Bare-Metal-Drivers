@@ -103,7 +103,9 @@ static const uint32_t uart_resets_done_mask[] = {
 
 #define UARTDR_DATA_Msk ((1UL << 8) - 1)
 
+#define UARTFR_RXFE_MsK (1UL << 4)
 #define UARTFR_TXFF_MsK (1UL << 5)
+
 
 
 #define UARTIBRD_Msk ((1UL << 16) - 1) // 16 bits for integer baud rate divisor

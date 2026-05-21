@@ -56,7 +56,7 @@ bool bm_uart_write_byte(uint8_t uart_num, uint8_t byte) {
     
     // poll to see if TX is ready
     uint32_t timeout = 0x0FFFFFFF;
-    while (((uart_peripherals[uart_num]->UARTFR & UARTFR_TXFF_MsK)) != 0) {
+    while (bm_uart_tx_full(uart_num)) {
         if (timeout == 0) {return false;}
         timeout--;
     }
@@ -68,36 +68,59 @@ bool bm_uart_write_byte(uint8_t uart_num, uint8_t byte) {
 
 // transmit len bytes from buf — blocks until all bytes are written
 bool bm_uart_write(uint8_t uart_num, const uint8_t *buf, size_t len) {
-    return false; //not implemented yet
+    for (uint16_t i = 0; i < len; i++) {
+        if (!bm_uart_write_byte(uart_num, buf[i])) {return false;}
+    }
+    return true; //success
 }
 
 // transmit a null-terminated string — blocks until all bytes are written
 bool bm_uart_write_str(uint8_t uart_num, const char *str) {
-    return false; //not implemented yet
+
+    for (uint16_t i = 0; str[i] != '\0'; i++) {
+        if (!bm_uart_write_byte(uart_num, str[i])) {return false;}
+    }
+    return true; //success
 }
 
 // receive a single byte into byte_out — blocks until RX FIFO has data
 bool bm_uart_read_byte(uint8_t uart_num, uint8_t *byte_out) {
-    return false; //not implemented yet
+    // poll to see if RX is ready
+    uint32_t timeout = 0x0FFFFFFF;
+    while (!bm_uart_rx_ready(uart_num)) {
+        if (timeout == 0) {return false;}
+        timeout--;
+    }
+
+    *byte_out = uart_peripherals[uart_num]->UARTDR & UARTDR_DATA_Msk;
+    // reading also clears error flags in UARTRSR
+    
+    return true; //success
 }
 
 // receive up to len bytes into buf — blocks until len bytes are received
 bool bm_uart_read(uint8_t uart_num, uint8_t *buf, size_t len) {
-    return false; //not implemented yet
+    for (uint16_t i = 0; i < len; i++) {
+        if (!bm_uart_read_byte(uart_num, &buf[i])) {return false;}
+    }
+    return true; //success
 }
 
 // returns true if the TX FIFO is full — use to check before writing if non-blocking behavior is needed
 bool bm_uart_tx_full(uint8_t uart_num) {
-    return false; //not implemented yet
+    
+    return (((uart_peripherals[uart_num]->UARTFR & UARTFR_TXFF_MsK)) != 0);
 }
 
 // returns true if the RX FIFO has data available — use to poll before reading
 bool bm_uart_rx_ready(uint8_t uart_num) {
-    return false; //not implemented yet
+    return ((uart_peripherals[uart_num]->UARTFR & UARTFR_RXFE_MsK)) == 0;
 }
 
 // reads UARTRIS (raw interrupt status) and UARTFR (flag register) into status_out and flags_out
 // useful for diagnosing framing errors, overrun, break conditions, or FIFO state
 bool bm_uart_get_status(uint8_t uart_num, uint32_t *status_out, uint32_t *flags_out) {
-    return false; //not implemented yet
+    *status_out = uart_peripherals[uart_num]->UARTRIS;
+    *flags_out = uart_peripherals[uart_num]->UARTFR;
+    return true; // success
 }
