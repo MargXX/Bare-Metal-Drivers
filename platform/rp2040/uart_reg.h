@@ -96,7 +96,7 @@ static const uint32_t uart_resets_reset_mask[] = {
     RESETS_UART1_Msk,
 };
 
-static const uint32_t uart_resets_done_mask[] = {
+static const uint32_t uart_resets_reset_done_mask[] = {
     RESETS_UART0_Msk,
     RESETS_UART1_Msk,
 };

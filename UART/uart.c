@@ -27,7 +27,7 @@ bool bm_uart_init(uint8_t *uart_num, uint32_t baud_rate, uint8_t tx_pin, uint8_t
     RESETS->RESET &= ~uart_resets_reset_mask[*uart_num];
     // poll until reset is done
     uint32_t timeout = 0x0FFFFFFF;
-    while (((RESETS->DONE & uart_resets_done_mask[*uart_num])) == 0) {
+    while (((RESETS->DONE & uart_resets_reset_done_mask[*uart_num])) == 0) {
         if (timeout == 0) {return false;}
         timeout--;
     }
