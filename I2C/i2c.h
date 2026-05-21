@@ -22,12 +22,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "i2c_reg.h"
+#include "i2c_platform.h"
 
-// I2C clock speed — update SCL_HCNT/LCNT in i2c.c if changing
-// Standard mode (100kHz): I2C_MODE_STANDARD
-// Fast mode (400kHz):     I2C_MODE_FAST
-#define I2C_MODE_STANDARD   100000U
-#define I2C_MODE_FAST       400000U
+
 
 // returns false on error, true on success
 
