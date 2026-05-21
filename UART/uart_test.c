@@ -26,7 +26,8 @@ int main() {
         bm_uart_write_byte(uart_val,0x55);
         bm_gpio_put(25, true);
         while(1) {
-            bm_uart_write_byte(uart_val,0xF0);
+            bm_uart_write_str(uart_val,"Hello World - ");
+            bm_systick_delay_ms(200);
         }
     } else {
         while(1) {
