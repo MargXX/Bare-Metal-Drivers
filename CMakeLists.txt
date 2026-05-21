@@ -31,18 +31,33 @@ add_executable(gpio_test
     GPIO/gpio_test.c # main() here
 )
 
-add_executable(systick_test
+# add_executable(systick_test
+#     SysTick/systick.c
+#     SysTick/systick_test.c # main() here
+# )
+
+add_executable(uart_test
+    GPIO/gpio.c
     SysTick/systick.c
-    SysTick/systick_test.c # main() here
+    UART/uart.c 
+    UART/uart_test.c # main() here
 )
 
 # ensures an elf is made with the name gpio_test.elf instead of just gpio_test
 set_target_properties(gpio_test PROPERTIES OUTPUT_NAME "gpio_test.elf")
+# set_target_properties(systick_test PROPERTIES OUTPUT_NAME "systick_test.elf")
+set_target_properties(uart_test PROPERTIES OUTPUT_NAME "uart_test.elf")
+
+
 
 # set up linker
 # linker stitches together .o files(object) and .a files(libraries) to create executable
 target_link_libraries(gpio_test pico_runtime)
 # target_link_libraries(systick_test pico_runtime)
+target_link_libraries(uart_test pico_runtime)
+
+
+
 
 # generate uf2 file for flashing since working w/ pico
 # pico_add_extra_outputs(gpio_test)

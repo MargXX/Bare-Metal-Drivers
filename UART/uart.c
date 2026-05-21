@@ -53,7 +53,17 @@ bool bm_uart_init(uint8_t *uart_num, uint32_t baud_rate, uint8_t tx_pin, uint8_t
 
 // transmit a single byte — blocks until TX FIFO has space
 bool bm_uart_write_byte(uint8_t uart_num, uint8_t byte) {
-    return false; //not implemented yet
+    
+    // poll to see if TX is ready
+    uint32_t timeout = 0x0FFFFFFF;
+    while (((uart_peripherals[uart_num]->UARTFR & UARTFR_TXFF_MsK)) != 0) {
+        if (timeout == 0) {return false;}
+        timeout--;
+    }
+
+    uart_peripherals[uart_num]->UARTDR = byte;
+    
+    return true; //success
 }
 
 // transmit len bytes from buf — blocks until all bytes are written

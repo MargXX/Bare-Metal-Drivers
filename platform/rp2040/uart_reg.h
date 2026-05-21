@@ -48,6 +48,7 @@ static const uart_pin_pair uart_valid_pairs[] = {
 
 #define RESETS_BASE 0x4000c000 
 
+
 //register offsets from base
 typedef struct {
     volatile uint32_t UARTDR;           // 0x00 Data Register
@@ -100,6 +101,9 @@ static const uint32_t uart_resets_done_mask[] = {
     RESETS_UART1_Msk,
 };
 
+#define UARTDR_DATA_Msk ((1UL << 8) - 1)
+
+#define UARTFR_TXFF_MsK (1UL << 5)
 
 
 #define UARTIBRD_Msk ((1UL << 16) - 1) // 16 bits for integer baud rate divisor

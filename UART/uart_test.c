@@ -1,11 +1,38 @@
 #include "uart.h"
+#include "../GPIO/gpio.h"
+#include "../SysTick/systick.h"
+
 
 int main() {
+    bm_gpio_set_function(25, GPIO_FUNC_SIO);
+    bm_gpio_set_direction(25, GPIO_DIR_OUTPUT);
+    bm_gpio_put(25, false);
     bm_systick_init();
-    
-    while (1) {
-        // test something
+
+    //3 blinks before test
+    for (int i=3; i > 0; i--) {
+        bm_gpio_put(25, true);
+        bm_systick_delay_ms(500);
+        bm_gpio_put(25, false);
+        bm_systick_delay_ms(500);
+    }
+
+    //test
+    bool result;
+    uint8_t uart_val;
+    result = bm_uart_init(&uart_val,115200,0,1);
+
+    if (result) {
+        bm_gpio_put(25, true);
+        while(1) {
+            bm_uart_write_byte(uart_val,0x55);
+        }
+    } else {
+        while(1) {
+            bm_gpio_toggle(25);
+            bm_systick_delay_ms(200);
+            bm_uart_write_byte(uart_val,0x55);
+        }
     }
     
-    return 0;
 }
