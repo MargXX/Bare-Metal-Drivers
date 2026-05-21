@@ -20,7 +20,7 @@ int main() {
     //test
     bool result;
     uint8_t uart_val;
-    result = bm_uart_init(&uart_val,115200,0,1);
+    result = bm_uart_init(&uart_val,115200,8,9);
 
     if (result) {
         bm_uart_write_byte(uart_val,0x55);
