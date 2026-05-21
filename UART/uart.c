@@ -22,6 +22,16 @@ bool bm_uart_init(uint8_t *uart_num, uint32_t baud_rate, uint8_t tx_pin, uint8_t
     }
     if (peripheral == 255) { return false; } //invalid pin pair
     
+
+    //dissasert reset  - RP2040 SPECIFIC
+    RESETS->RESET &= ~uart_resets_reset_mask[*uart_num];
+    // poll until reset is done
+    uint32_t timeout = 0x0FFFFFFF;
+    while (((RESETS->DONE & uart_resets_done_mask[*uart_num])) == 0) {
+        timeout--;
+        if (timeout == 0) {return false;}
+    }
+
     //disable UART to allow configuration
     uart_peripherals[*uart_num]->UARTCR &= ~(UARTCR_UARTEN_Msk | UARTCR_SIREN_Msk | UARTCR_SIRLP_Msk); //also disable SIR low power mode just in case, as recommended by datasheet
     // calculate and set baud rate divisors in UARTIBRD and UARTFBRD

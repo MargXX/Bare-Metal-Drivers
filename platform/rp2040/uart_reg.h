@@ -71,17 +71,36 @@ typedef struct {
     volatile uint32_t UARTPCellID[4];   // 0xFF0-0xFFC PrimeCell ID Registers
 } uart_regs_t;
 
-static volatile uart_regs_t * const uart_peripherals[] = {
+static volatile uart_regs_t * const uart_peripherals[]= {
     (volatile uart_regs_t *)UART0_BASE,
     (volatile uart_regs_t *)UART1_BASE,
 };
 
-#define RESETS_RESETS_OFFSET 0x0
-#define RESETS_RESET_DONE_OFFSET 0x8
 
+typedef struct {
+    volatile uint32_t RESET;    //RESETS_RESETS_OFFSET 0x0
+    volatile uint32_t WDSEL;    //RESETS_WDSEL_OFFSET 0x4
+    volatile uint32_t DONE;     //RESETS_RESET_DONE_OFFSET 0x8
+} reset_regs_t;
+
+#define RESETS ((volatile reset_regs_t *)RESETS_BASE)
 
 
 // Register masks
+#define RESETS_UART0_Msk (1UL << 22)
+#define RESETS_UART1_Msk (1UL << 23)
+
+static const uint32_t uart_resets_reset_mask[] = {
+    RESETS_UART0_Msk,
+    RESETS_UART1_Msk,
+};
+
+static const uint32_t uart_resets_done_mask[] = {
+    RESETS_UART0_Msk,
+    RESETS_UART1_Msk,
+};
+
+
 
 #define UARTIBRD_Msk ((1UL << 16) - 1) // 16 bits for integer baud rate divisor
 #define UARTFBRD_Msk ((1UL << 6) - 1)  // 6 bits for fractional baud rate divisor
