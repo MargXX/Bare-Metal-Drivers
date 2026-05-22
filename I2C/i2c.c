@@ -1,4 +1,6 @@
 #include "i2c.h"
+#include "i2c_reg.h"
+#include "resets_reg.h"
 
 // returns false on error, true on success
 

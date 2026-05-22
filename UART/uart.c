@@ -1,5 +1,6 @@
 #include "uart.h"
 #include "uart_reg.h"
+#include "resets_reg.h"
 
 // returns false on error, true on success
 

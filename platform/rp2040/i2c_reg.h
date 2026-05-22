@@ -15,7 +15,6 @@
 #define I2C0_BASE 0x40044000
 #define I2C1_BASE 0x40048000
 
-#define RESETS_BASE 0x4000c000 
 
 //register offsets from base
 typedef struct {
@@ -72,27 +71,9 @@ static volatile i2c_regs_t * const i2c_peripherals[]= {
     (volatile i2c_regs_t *)I2C1_BASE,
 };
 
-typedef struct {
-    volatile uint32_t RESET;    //RESETS_RESETS_OFFSET 0x0
-    volatile uint32_t WDSEL;    //RESETS_WDSEL_OFFSET 0x4
-    volatile uint32_t DONE;     //RESETS_RESET_DONE_OFFSET 0x8
-} reset_regs_t;
-
-#define RESETS ((volatile reset_regs_t *)RESETS_BASE)
-
 // Register masks
-#define RESETS_I2C0_Msk (1UL << 3)
-#define RESETS_I2C1_Msk (1UL << 4)
 
 
-static const uint32_t i2c_resets_reset_mask[] = {
-    RESETS_I2C0_Msk,
-    RESETS_I2C1_Msk,
-};
 
-static const uint32_t i2c_resets_reset_mask[] = {
-    RESETS_I2C0_Msk,
-    RESETS_I2C1_Msk,
-};
 
 #endif /* I2C_REG_H */

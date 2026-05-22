@@ -46,7 +46,6 @@ static const uart_pin_pair uart_valid_pairs[] = {
 #define UART0_BASE 0x40034000
 #define UART1_BASE 0x40038000
 
-#define RESETS_BASE 0x4000c000 
 
 
 //register offsets from base
@@ -78,28 +77,11 @@ static volatile uart_regs_t * const uart_peripherals[]= {
 };
 
 
-typedef struct {
-    volatile uint32_t RESET;    //RESETS_RESETS_OFFSET 0x0
-    volatile uint32_t WDSEL;    //RESETS_WDSEL_OFFSET 0x4
-    volatile uint32_t DONE;     //RESETS_RESET_DONE_OFFSET 0x8
-} reset_regs_t;
 
-#define RESETS ((volatile reset_regs_t *)RESETS_BASE)
 
 
 // Register masks
-#define RESETS_UART0_Msk (1UL << 22)
-#define RESETS_UART1_Msk (1UL << 23)
 
-static const uint32_t uart_resets_reset_mask[] = {
-    RESETS_UART0_Msk,
-    RESETS_UART1_Msk,
-};
-
-static const uint32_t uart_resets_reset_done_mask[] = {
-    RESETS_UART0_Msk,
-    RESETS_UART1_Msk,
-};
 
 #define UARTDR_DATA_Msk ((1UL << 8) - 1)
 
