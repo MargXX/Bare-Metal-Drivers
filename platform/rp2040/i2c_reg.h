@@ -11,6 +11,29 @@
 #include <stdint.h>
 
 
+typedef struct {  
+    uint8_t sda;
+    uint8_t scl;
+    uint8_t peripheral;
+} i2c_pin_pair;
+
+//this is here so i2c.c is device portable
+static const i2c_pin_pair i2c_valid_pairs[] = {
+    { .sda =  0, .scl =  1, .peripheral = 0 },
+    { .sda =  4, .scl =  5, .peripheral = 0 },
+    { .sda =  8, .scl =  9, .peripheral = 0 },
+    { .sda = 12, .scl = 13, .peripheral = 0 },
+    { .sda = 16, .scl = 17, .peripheral = 0 },
+    { .sda = 20, .scl = 21, .peripheral = 0 },
+    { .sda =  2, .scl =  3, .peripheral = 1 },
+    { .sda =  6, .scl =  7, .peripheral = 1 },
+    { .sda = 10, .scl = 11, .peripheral = 1 },
+    { .sda = 14, .scl = 15, .peripheral = 1 },
+    { .sda = 18, .scl = 19, .peripheral = 1 },
+    { .sda = 26, .scl = 27, .peripheral = 1 },
+}; 
+
+#define NUM_I2C_PAIRS 12U
 
 #define I2C0_BASE 0x40044000
 #define I2C1_BASE 0x40048000
@@ -72,8 +95,23 @@ static volatile i2c_regs_t * const i2c_peripherals[]= {
 };
 
 // Register masks
+#define I2C_IC_CON_MASTER_MODE_Msk                  (1UL << 0)
+#define I2C_IC_CON_SPEED_Msk                        (3UL << 1)
+#define I2C_IC_CON_IC_10BITADDR_SLAVE_Msk           (1UL << 3)
+#define I2C_IC_CON_IC_10BITADDR_MASTER_Msk          (1UL << 4)
+#define I2C_IC_CON_RESTART_EN_Msk                   (1UL << 5)
+#define I2C_IC_CON_IC_SLAVE_DISABLE_Msk             (1UL << 6)
+#define I2C_IC_CON_STOP_DET_IFADDRESSED_Msk         (1UL << 7)
+#define I2C_IC_CON_TX_EMPTY_CTRL_Msk                (1UL << 8)
+#define I2C_IC_CON_RX_FIFO_FULL_HLD_CTRL_Msk        (1UL << 9)
+#define I2C_IC_CON_STOP_DET_IF_MASTER_ACTIVE_Msk    (1UL << 10)
 
+#define I2C_IC_TAR_IC_TAR_Msk ((1UL << 10) - 1)
 
-
+#define I2C_IC_DATA_CMD_DAT_Msk             ((1UL << 8) - 1)
+#define I2C_IC_DATA_CMD_CMD_Msk             (1UL << 8)
+#define I2C_IC_DATA_CMD_STOP_Msk            (1UL << 9)
+#define I2C_IC_DATA_CMD_RESTART_Msk         (1UL << 10)
+#define I2C_IC_DATA_CMD_FIRST_DATA_BYTE_Msk (1UL << 11)
 
 #endif /* I2C_REG_H */

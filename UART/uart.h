@@ -56,4 +56,7 @@ bool bm_uart_rx_ready(uint8_t uart_num);
 // useful for diagnosing framing errors, overrun, break conditions, or FIFO state
 bool bm_uart_get_status(uint8_t uart_num, uint32_t *status_out, uint32_t *flags_out);
 
+//add functions later to adjust settings like baud rate, parity, stop bits, or to disable/enable interrupts as needed
+
+
 #endif /* UART_H */
