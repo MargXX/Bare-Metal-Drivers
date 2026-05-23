@@ -15,7 +15,7 @@ This is a personal learning project.
 | GPIO | Complete | Verified on hardware. LED blink on GP25. |
 | SysTick | Complete | ISR-driven millisecond timing. 125MHz processor clock. |
 | UART | Complete | Verified on hardware. TX confirmed via logic analyzer and serial monitor. |
-| I2C | Planned | |
+| I2C | In Progress | Init complete. Transaction functions in progress. |
 | BMP390 (device) | Planned | Depends on I2C |
 | LSM9DS1 (device) | Planned | Depends on I2C, fall target |
 
@@ -34,7 +34,10 @@ Bare-Metal-Drivers/
 │       ├── gpio_platform.h
 │       ├── gpio_reg.h
 │       ├── systick_reg.h
-│       └── uart_reg.h
+│       ├── uart_reg.h
+│       ├── resets_reg.h
+│       ├── i2c_reg.h
+│       └── i2c_platform.h
 ├── GPIO/
 │   ├── gpio.h
 │   ├── gpio.c
@@ -43,15 +46,21 @@ Bare-Metal-Drivers/
 │   ├── systick.h
 │   ├── systick.c
 │   └── systick_test.c
-└── UART/
-    ├── uart.h
-    ├── uart.c
-    └── uart_test.c
+├── UART/
+│   ├── uart.h
+│   ├── uart.c
+│   └── uart_test.c
+└── I2C/
+    ├── i2c.h
+    ├── i2c.c
+    └── i2c_test.c
 ```
 
 Each driver lives in its own folder with a portable public API header and implementation file. Hardware-specific register maps and constants live under `platform/rp2040/` and are included only by the driver's own `.c` file. Test files contain `main()` and produce a standalone flashable binary.
 
 `_platform.h` files exist only where there are public constants that callers need to pass into driver functions. Drivers with no caller-facing platform constants (SysTick, UART) do not have one. The asymmetry is intentional.
+
+`resets_reg.h` is shared across peripheral drivers — it is the single authoritative source for the RP2040 RESETS block and is included directly by each driver's `.c` file as needed.
 
 ---
 
@@ -128,7 +137,7 @@ screen /dev/ttyACM0 115200
 - `pico_runtime` used instead of `pico_stdlib` to avoid name conflicts with driver functions
 - The Pico SDK remaps `SysTick_Handler` to `isr_systick` — use `isr_systick` as the handler name
 - `pico_runtime` sets the system clock to 125MHz on startup — set `SYSTICK_TICKS_PER_MS` to `125000` accordingly
-- `pico_runtime` also configures `clk_peri` to 125MHz at startup — no explicit clock enable needed in UART init
+- `pico_runtime` also configures `clk_peri` to 125MHz at startup — no explicit clock enable needed in peripheral init
 - Static memory allocation preferred throughout — no `malloc`/`free`
 - Switching target platforms requires only a one-line CMake change (`set(PLATFORM "rp2040")`) and a new `platform/` directory
 
