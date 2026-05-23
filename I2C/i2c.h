@@ -9,7 +9,6 @@
  *   Standard mode:  100 kHz — update IC_SS_SCL_HCNT/LCNT accordingly
  *   Fast mode:      400 kHz — update IC_FS_SCL_HCNT/LCNT accordingly
  *
- * Pin assumption: GP0 (SDA) and GP1 (SCL) using I2C0 peripheral (I2CM_0).
  *   Update I2C_BASE and GPIO pin assignments if using I2C1 or alternate pins.
  *
  * Reference: RP2040 Datasheet, Section 4.3

@@ -17,7 +17,27 @@ bool bm_i2c_init(uint8_t *i2c_num, uint32_t clock_hz, uint8_t sda_pin, uint8_t s
         }
     }
     if (peripheral == 255) { return false; } //invalid pin pair
-    // verify clock speed
+    // verify clock speed and get high/low count values based on mode
+    uint8_t speed_mode;
+    uint32_t high_count;
+    uint32_t low_count;
+    if (clock_hz <= I2C_MODE_STANDARD) {
+        speed_mode = I2C_IC_CON_SPEED_STANDARD;
+        // high period lengths from datasheet
+        high_count = (uint64_t)I2C_SS_MIN_HIGH_TIME * I2C_CLK / 1000000000UL;
+        low_count = (uint64_t)I2C_SS_MIN_LOW_TIME * I2C_CLK / 1000000000UL;
+    } else if (clock_hz <= I2C_MODE_FAST) {
+        speed_mode = I2C_IC_CON_SPEED_FAST;
+        high_count = (uint64_t)I2C_FS_MIN_HIGH_TIME * I2C_CLK / 1000000000UL;
+        low_count = (uint64_t)I2C_FS_MIN_LOW_TIME * I2C_CLK / 1000000000UL;
+    } else if (clock_hz <= I2C_MODE_FAST_PLUS) {
+        speed_mode = I2C_IC_CON_SPEED_FAST_PLUS;
+        high_count = (uint64_t)I2C_FS_MIN_PLUS_HIGH_TIME * I2C_CLK / 1000000000UL;
+        low_count = (uint64_t)I2C_FS_MIN_PLUS_LOW_TIME * I2C_CLK / 1000000000UL;
+    }else {
+        return false; //invalid clock speed
+    }
+
 
     //dissasert reset  - RP2040 SPECIFIC
     RESETS->RESET &= ~i2c_resets_reset_mask[*i2c_num];
@@ -27,16 +47,43 @@ bool bm_i2c_init(uint8_t *i2c_num, uint32_t clock_hz, uint8_t sda_pin, uint8_t s
         if (timeout == 0) {return false;}
         timeout--;
     }
-    // disable I2C to allow configuration
-    // disable DW_apb_i2c/set IC_ENABLE[0] = 0
+    // disable I2C to allow configuration:
+    // clear IC_ENABLE[0]
+    i2c_peripherals[*i2c_num]->IC_ENABLE &= ~IC_ENABLE_ENABLE_Msk;
+    // poll until IC_ENABLE_STATUS[0] reads 0 to ensure the peripheral is fully disabled before continuing with configuration
+    timeout = 0x0FFFFFFF;
+    while (((i2c_peripherals[*i2c_num]->IC_ENABLE_STATUS & IC_ENABLE_STATUS_IC_EN_Msk)) != 0) {
+        if (timeout == 0) {return false;}
+        timeout--;
+    }
+
+    //enable master mode, disable slave mode, enable restart, and set speed in IC_CON
+    i2c_peripherals[*i2c_num]->IC_CON &= ~( I2C_IC_CON_SPEED_Msk); //clear relevant bits first
+    i2c_peripherals[*i2c_num]->IC_CON |= 
+        ( I2C_IC_CON_MASTER_MODE_Msk) |
+        ( speed_mode << I2C_IC_CON_SPEED_SHIFT ) |
+        ( I2C_IC_CON_IC_RESTART_EN_Msk ) |
+        ( I2C_IC_CON_IC_SLAVE_DISABLE_Msk );
 
     // configure GPIO pins
     bm_gpio_set_function(sda_pin, GPIO_FUNC_I2C);
     bm_gpio_set_function(scl_pin, GPIO_FUNC_I2C);
-    // enable i2c, scl, and sda
 
+    //set speed
+    if (speed_mode == I2C_IC_CON_SPEED_STANDARD) {
+        i2c_peripherals[*i2c_num]->IC_SS_SCL_HCNT = high_count & SS_SCL_HCNT_Msk;
+        i2c_peripherals[*i2c_num]->IC_SS_SCL_LCNT = low_count & SS_SCL_LCNT_Msk;
+    } else if (speed_mode == I2C_IC_CON_SPEED_FAST || speed_mode == I2C_IC_CON_SPEED_FAST_PLUS) {
+        i2c_peripherals[*i2c_num]->IC_FS_SCL_HCNT = high_count & FS_SCL_HCNT_Msk;
+        i2c_peripherals[*i2c_num]->IC_FS_SCL_LCNT = low_count & FS_SCL_LCNT_Msk;
+    }
+    // initilize IC_TAR with 0 since the target address will be set in each transaction function (write, read, write_read)
+    i2c_peripherals[*i2c_num]->IC_TAR &= 0; 
 
-    return false; //not implemented yet
+    // enable I2C by setting IC_ENABLE[0] to 1
+    i2c_peripherals[*i2c_num]->IC_ENABLE |= IC_ENABLE_ENABLE_Msk;
+
+    return true; // success
 }
 
 // transmit len bytes from buf to device at 7-bit addr

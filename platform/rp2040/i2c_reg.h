@@ -10,6 +10,15 @@
 
 #include <stdint.h>
 
+#define I2C_CLK 125000000UL // 125MHz clock default
+
+#define I2C_SS_MIN_HIGH_TIME        4000UL // ns
+#define I2C_SS_MIN_LOW_TIME         4700UL // ns
+#define I2C_FS_MIN_HIGH_TIME        600UL  // ns
+#define I2C_FS_MIN_LOW_TIME         1300UL // ns
+#define I2C_FS_MIN_PLUS_HIGH_TIME   260UL  // ns
+#define I2C_FS_MIN_PLUS_LOW_TIME    500UL  // ns
+
 
 typedef struct {  
     uint8_t sda;
@@ -33,7 +42,7 @@ static const i2c_pin_pair i2c_valid_pairs[] = {
     { .sda = 26, .scl = 27, .peripheral = 1 },
 }; 
 
-#define NUM_I2C_PAIRS 12U
+#define NUM_I2C_PAIRS (sizeof(i2c_valid_pairs) / sizeof(i2c_pin_pair))
 
 #define I2C0_BASE 0x40044000
 #define I2C1_BASE 0x40048000
@@ -99,7 +108,7 @@ static volatile i2c_regs_t * const i2c_peripherals[]= {
 #define I2C_IC_CON_SPEED_Msk                        (3UL << 1)
 #define I2C_IC_CON_IC_10BITADDR_SLAVE_Msk           (1UL << 3)
 #define I2C_IC_CON_IC_10BITADDR_MASTER_Msk          (1UL << 4)
-#define I2C_IC_CON_RESTART_EN_Msk                   (1UL << 5)
+#define I2C_IC_CON_IC_RESTART_EN_Msk                   (1UL << 5)
 #define I2C_IC_CON_IC_SLAVE_DISABLE_Msk             (1UL << 6)
 #define I2C_IC_CON_STOP_DET_IFADDRESSED_Msk         (1UL << 7)
 #define I2C_IC_CON_TX_EMPTY_CTRL_Msk                (1UL << 8)
@@ -113,5 +122,25 @@ static volatile i2c_regs_t * const i2c_peripherals[]= {
 #define I2C_IC_DATA_CMD_STOP_Msk            (1UL << 9)
 #define I2C_IC_DATA_CMD_RESTART_Msk         (1UL << 10)
 #define I2C_IC_DATA_CMD_FIRST_DATA_BYTE_Msk (1UL << 11)
+
+#define IC_ENABLE_ENABLE_Msk (1UL << 0)
+
+#define IC_ENABLE_STATUS_IC_EN_Msk (1UL << 0)
+
+#define SS_SCL_HCNT_Msk ((1UL << 16) - 1)
+#define SS_SCL_LCNT_Msk ((1UL << 16) - 1)
+#define FS_SCL_HCNT_Msk ((1UL << 16) - 1)
+#define FS_SCL_LCNT_Msk ((1UL << 16) - 1)
+
+#define I2C_IC_CON_MASTER_MODE_SHIFT                  0
+#define I2C_IC_CON_SPEED_SHIFT                        1
+#define I2C_IC_CON_IC_10BITADDR_SLAVE_SHIFT           3
+#define I2C_IC_CON_IC_10BITADDR_MASTER_SHIFT          4
+#define I2C_IC_CON_IC_RESTART_EN_SHIFT                5
+#define I2C_IC_CON_IC_SLAVE_DISABLE_SHIFT             6
+#define I2C_IC_CON_STOP_DET_IFADDRESSED_SHIFT         7
+#define I2C_IC_CON_TX_EMPTY_CTRL_SHIFT                8
+#define I2C_IC_CON_RX_FIFO_FULL_HLD_CTRL_SHIFT        9
+#define I2C_IC_CON_STOP_DET_IF_MASTER_ACTIVE_SHIFT    10
 
 #endif /* I2C_REG_H */
