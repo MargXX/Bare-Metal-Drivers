@@ -1,10 +1,8 @@
 # Bare-Metal Drivers
 
-A from-scratch bare-metal driver library in C, targeting ARM Cortex-M microcontrollers. Initial target is the Raspberry Pi RP2040, with portability to STM32 planned as a follow-on.
+A from-scratch bare-metal driver library in C for the Raspberry Pi RP2040. No vendor HAL — all peripheral configuration is written directly against the RP2040 datasheet.
 
-The goal is a layered driver architecture that separates MCU-specific peripheral access from device logic, so the same sensor drivers can run on different host MCUs. No vendor HAL — all peripheral configuration is written directly against the reference manual.
-
-This is a personal learning project.
+This driver stack is the foundation layer of a larger flight computer project: a custom PCB with a full application layer, all built from scratch. The drivers are written to be clean and self-contained, with hardware-specific register details isolated from the public API.
 
 ---
 
@@ -17,7 +15,10 @@ This is a personal learning project.
 | UART | Complete | Verified on hardware. TX confirmed via logic analyzer and serial monitor. |
 | I2C | In Progress | Init complete. Transaction functions in progress. |
 | BMP390 (device) | Planned | Depends on I2C |
-| LSM9DS1 (device) | Planned | Depends on I2C, fall target |
+| LSM9DS1 (device) | Planned | Depends on I2C |
+| SPI | Optional | Needed if onboard flash logging is added |
+| W25Q128 (device) | Optional | Depends on SPI |
+| STM32 port | Stretch | Low priority follow-on |
 
 ---
 
@@ -139,7 +140,7 @@ screen /dev/ttyACM0 115200
 - `pico_runtime` sets the system clock to 125MHz on startup — set `SYSTICK_TICKS_PER_MS` to `125000` accordingly
 - `pico_runtime` also configures `clk_peri` to 125MHz at startup — no explicit clock enable needed in peripheral init
 - Static memory allocation preferred throughout — no `malloc`/`free`
-- Switching target platforms requires only a one-line CMake change (`set(PLATFORM "rp2040")`) and a new `platform/` directory
+- The `platform/rp2040/` structure keeps register-level details isolated from driver logic — switching targets requires only a new `platform/` directory and a one-line CMake change (`set(PLATFORM "rp2040")`)
 
 ---
 
