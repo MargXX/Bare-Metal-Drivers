@@ -104,9 +104,9 @@ static volatile i2c_regs_t * const i2c_peripherals[]= {
 };
 
 #define I2C_IC_CON_SPEED_STANDARD     0x1UL
-#define I2C_IC_CON_SPEED_FAST         0x2UL
-#define I2C_IC_CON_SPEED_FAST_PLUS    0x2UL
-#define I2C_IC_CON_SPEED_HIGH         0x3UL
+#define I2C_IC_CON_SPEED_FAST         0b10UL
+#define I2C_IC_CON_SPEED_FAST_PLUS    0b10UL
+#define I2C_IC_CON_SPEED_HIGH         0b11UL
 
 // Register masks
 #define I2C_IC_CON_MASTER_MODE_Msk                  (1UL << 0)

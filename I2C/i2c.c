@@ -61,12 +61,12 @@ bool bm_i2c_init(uint8_t *i2c_num, uint32_t clock_hz, uint8_t sda_pin, uint8_t s
     }
 
     //enable master mode, disable slave mode, enable restart, and set speed in IC_CON
-    // i2c_peripherals[*i2c_num]->IC_CON &= ~( I2C_IC_CON_SPEED_Msk); //clear relevant bits first
     i2c_peripherals[*i2c_num]->IC_CON = 
         (( I2C_IC_CON_MASTER_MODE_Msk) |
         ( speed_mode << I2C_IC_CON_SPEED_SHIFT ) |
         ( I2C_IC_CON_IC_RESTART_EN_Msk ) |
         ( I2C_IC_CON_IC_SLAVE_DISABLE_Msk ));
+
 
     // configure GPIO pins
     bm_gpio_set_function(sda_pin, GPIO_FUNC_I2C);
@@ -345,11 +345,10 @@ bool bm_i2c_is_busy(uint8_t i2c_num) {
 
 // reads IC_STATUS and IC_TX_ABRT_SOURCE into status_out and abort_out
 // useful for diagnosing NAK, arbitration loss, or timeout conditions
-bool bm_i2c_get_status(uint8_t i2c_num, uint32_t *status_out, uint32_t *abort_out, uint32_t *ic_con_out) {
+bool bm_i2c_get_status(uint8_t i2c_num, uint32_t *status_out, uint32_t *abort_out) {
     if (i2c_num >= NUM_I2C_PAIRS) { return false; }//invalid peripheral number
     *status_out = i2c_peripherals[i2c_num]->IC_STATUS;
     *abort_out = i2c_peripherals[i2c_num]->IC_TX_ABRT_SOURCE;
-    *ic_con_out = i2c_peripherals[i2c_num]->IC_CON;
     return true; //success
 }
 
