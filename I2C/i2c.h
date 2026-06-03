@@ -23,7 +23,9 @@
 #include "i2c_platform.h"
 #include "../GPIO/gpio.h"
 
-
+#define DELAY_CYCLE_COUNT 8UL
+#define TOTAL_TIMEOUT_CYCLES 0xFFFFFFFFUL
+#define TIMEOUT_CYCLES 0x0FFFFFFFUL
 
 // returns false on error, true on success
 

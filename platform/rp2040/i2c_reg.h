@@ -103,6 +103,11 @@ static volatile i2c_regs_t * const i2c_peripherals[]= {
     (volatile i2c_regs_t *)I2C1_BASE,
 };
 
+#define I2C_IC_CON_SPEED_STANDARD     0x1
+#define I2C_IC_CON_SPEED_FAST         0x2
+#define I2C_IC_CON_SPEED_FAST_PLUS    0x2
+#define I2C_IC_CON_SPEED_HIGH         0x3
+
 // Register masks
 #define I2C_IC_CON_MASTER_MODE_Msk                  (1UL << 0)
 #define I2C_IC_CON_SPEED_Msk                        (3UL << 1)
@@ -115,7 +120,10 @@ static volatile i2c_regs_t * const i2c_peripherals[]= {
 #define I2C_IC_CON_RX_FIFO_FULL_HLD_CTRL_Msk        (1UL << 9)
 #define I2C_IC_CON_STOP_DET_IF_MASTER_ACTIVE_Msk    (1UL << 10)
 
-#define I2C_IC_TAR_IC_TAR_Msk ((1UL << 10) - 1)
+#define I2C_IC_TAR_IC_TAR_10BIT_Msk ((1UL << 10) - 1)
+#define I2C_IC_TAR_IC_TAR_7BIT_Msk ((1UL << 7) - 1)
+
+#define I2C_IC_SAR_IC_SAR_Msk ((1UL << 10) - 1)
 
 #define I2C_IC_DATA_CMD_DAT_Msk             ((1UL << 8) - 1)
 #define I2C_IC_DATA_CMD_CMD_Msk             (1UL << 8)
@@ -123,14 +131,16 @@ static volatile i2c_regs_t * const i2c_peripherals[]= {
 #define I2C_IC_DATA_CMD_RESTART_Msk         (1UL << 10)
 #define I2C_IC_DATA_CMD_FIRST_DATA_BYTE_Msk (1UL << 11)
 
-#define IC_ENABLE_ENABLE_Msk (1UL << 0)
+#define I2C_IC_ENABLE_ENABLE_Msk (1UL << 0)
 
-#define IC_ENABLE_STATUS_IC_EN_Msk (1UL << 0)
+#define I2C_IC_ENABLE_STATUS_IC_EN_Msk (1UL << 0)
+#define I2C_IC_ENABLE_STATUS_SLV_DISABLED_WHILE_BUSY_Msk (1UL << 1)
+#define I2C_IC_ENABLE_STATUS_SLV_RX_DATA_LOST_Msk (1UL << 2)
 
-#define SS_SCL_HCNT_Msk ((1UL << 16) - 1)
-#define SS_SCL_LCNT_Msk ((1UL << 16) - 1)
-#define FS_SCL_HCNT_Msk ((1UL << 16) - 1)
-#define FS_SCL_LCNT_Msk ((1UL << 16) - 1)
+#define I2C_SS_SCL_HCNT_Msk ((1UL << 16) - 1)
+#define I2C_SS_SCL_LCNT_Msk ((1UL << 16) - 1)
+#define I2C_FS_SCL_HCNT_Msk ((1UL << 16) - 1)
+#define I2C_FS_SCL_LCNT_Msk ((1UL << 16) - 1)
 
 #define I2C_IC_CON_MASTER_MODE_SHIFT                  0
 #define I2C_IC_CON_SPEED_SHIFT                        1
@@ -141,6 +151,35 @@ static volatile i2c_regs_t * const i2c_peripherals[]= {
 #define I2C_IC_CON_STOP_DET_IFADDRESSED_SHIFT         7
 #define I2C_IC_CON_TX_EMPTY_CTRL_SHIFT                8
 #define I2C_IC_CON_RX_FIFO_FULL_HLD_CTRL_SHIFT        9
-#define I2C_IC_CON_STOP_DET_IF_MASTER_ACTIVE_SHIFT    10
+#define I2C_IC_CON_STOP_DET_IF_MASTER_ACTIVE_SHIFT    10\
+
+#define I2C_IC_STATUS_ACTIVITY_Msk (1UL << 0)
+#define I2C_IC_STATUS_TFNF_Msk (1UL << 1)
+#define I2C_IC_STATUS_TFE_Msk (1UL << 2)
+#define I2C_IC_STATUS_RFNE_Msk (1UL << 3)
+#define I2C_IC_STATUS_RFF_Msk (1UL << 4)
+#define I2C_IC_STATUS_MST_ACTIVITY_Msk (1UL << 5)
+#define I2C_IC_STATUS_SLV_ACTIVITY_Msk (1UL << 6)
+
+
+#define I2C_ICTX_ABRT_SOURCE_7B_ADDR_NOACK_Msk (1UL << 0)
+#define I2C_ICTX_ABRT_SOURCE_10BADDR1_NOACK_Msk (1UL << 1)
+#define I2C_ICTX_ABRT_SOURCE_10BADDR2_NOACK_Msk (1UL << 2)
+#define I2C_ICTX_ABRT_SOURCE_TXDATA_NOACK_Msk (1UL << 3)
+#define I2C_ICTX_ABRT_SOURCE_GCALL_NOACK_Msk (1UL << 4)
+#define I2C_ICTX_ABRT_SOURCE_GCALL_READ_NOACK_Msk (1UL << 5)
+#define I2C_ICTX_ABRT_SOURCE_HS_ACKDET_Msk (1UL << 6)
+#define I2C_ICTX_ABRT_SOURCE_SBYTE_ACKDET_Msk (1UL << 7)
+#define I2C_ICTX_ABRT_SOURCE_HS_NORSTRT_Msk (1UL << 8)
+#define I2C_ICTX_ABRT_SOURCE_SBYTE_NORSTRT_Msk (1UL << 9)
+#define I2C_ICTX_ABRT_SOURCE_ABRT_10B_RD_NORSTRT_Msk (1UL << 10)
+#define I2C_ICTX_ABRT_SOURCE_MASTER_DIS_Msk (1UL << 11)
+#define I2C_ICTX_ABRT_SOURCE_ARB_LOST_Msk (1UL << 12)
+#define I2C_ICTX_ABRT_SOURCE_ABRT_SLVFLUSH_TXFIFO_Msk (1UL << 13)
+#define I2C_ICTX_ABRT_SOURCE_ABRT_SLV_ARBLOST_Msk (1UL << 14)
+#define I2C_ICTX_ABRT_SOURCE_ABRT_SLVRD_INTX_Msk (1UL << 15)
+#define I2C_ICTX_ABRT_SOURCE_ABRT_USER_ABRT_Msk (1UL << 16)
+#define I2C_ICTX_ABRT_SOURCE_RESERVED_Msk (0b111111 << 17)
+#define I2C_ICTX_ABRT_SOURCE_TX_FLUSH_CNT_Msk (0b111111111 << 23)
 
 #endif /* I2C_REG_H */

@@ -43,11 +43,18 @@ add_executable(uart_test
     UART/uart_test.c # main() here
 )
 
+add_executable(i2c_test
+    GPIO/gpio.c
+    SysTick/systick.c
+    I2C/i2c.c 
+    I2C/i2c_test.c # main() here
+)
+
 # ensures an elf is made with the name gpio_test.elf instead of just gpio_test
 set_target_properties(gpio_test PROPERTIES OUTPUT_NAME "gpio_test.elf")
 # set_target_properties(systick_test PROPERTIES OUTPUT_NAME "systick_test.elf")
 set_target_properties(uart_test PROPERTIES OUTPUT_NAME "uart_test.elf")
-
+set_target_properties(i2c_test PROPERTIES OUTPUT_NAME "i2c_test.elf")
 
 
 # set up linker
@@ -55,6 +62,7 @@ set_target_properties(uart_test PROPERTIES OUTPUT_NAME "uart_test.elf")
 target_link_libraries(gpio_test pico_runtime)
 # target_link_libraries(systick_test pico_runtime)
 target_link_libraries(uart_test pico_runtime)
+target_link_libraries(i2c_test pico_runtime)
 
 
 
