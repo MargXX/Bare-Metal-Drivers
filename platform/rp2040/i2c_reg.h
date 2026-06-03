@@ -103,17 +103,17 @@ static volatile i2c_regs_t * const i2c_peripherals[]= {
     (volatile i2c_regs_t *)I2C1_BASE,
 };
 
-#define I2C_IC_CON_SPEED_STANDARD     0x1
-#define I2C_IC_CON_SPEED_FAST         0x2
-#define I2C_IC_CON_SPEED_FAST_PLUS    0x2
-#define I2C_IC_CON_SPEED_HIGH         0x3
+#define I2C_IC_CON_SPEED_STANDARD     0x1UL
+#define I2C_IC_CON_SPEED_FAST         0x2UL
+#define I2C_IC_CON_SPEED_FAST_PLUS    0x2UL
+#define I2C_IC_CON_SPEED_HIGH         0x3UL
 
 // Register masks
 #define I2C_IC_CON_MASTER_MODE_Msk                  (1UL << 0)
 #define I2C_IC_CON_SPEED_Msk                        (3UL << 1)
 #define I2C_IC_CON_IC_10BITADDR_SLAVE_Msk           (1UL << 3)
 #define I2C_IC_CON_IC_10BITADDR_MASTER_Msk          (1UL << 4)
-#define I2C_IC_CON_IC_RESTART_EN_Msk                   (1UL << 5)
+#define I2C_IC_CON_IC_RESTART_EN_Msk                (1UL << 5)
 #define I2C_IC_CON_IC_SLAVE_DISABLE_Msk             (1UL << 6)
 #define I2C_IC_CON_STOP_DET_IFADDRESSED_Msk         (1UL << 7)
 #define I2C_IC_CON_TX_EMPTY_CTRL_Msk                (1UL << 8)
@@ -151,7 +151,7 @@ static volatile i2c_regs_t * const i2c_peripherals[]= {
 #define I2C_IC_CON_STOP_DET_IFADDRESSED_SHIFT         7
 #define I2C_IC_CON_TX_EMPTY_CTRL_SHIFT                8
 #define I2C_IC_CON_RX_FIFO_FULL_HLD_CTRL_SHIFT        9
-#define I2C_IC_CON_STOP_DET_IF_MASTER_ACTIVE_SHIFT    10\
+#define I2C_IC_CON_STOP_DET_IF_MASTER_ACTIVE_SHIFT    10
 
 #define I2C_IC_STATUS_ACTIVITY_Msk (1UL << 0)
 #define I2C_IC_STATUS_TFNF_Msk (1UL << 1)

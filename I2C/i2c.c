@@ -3,9 +3,9 @@
 #include "resets_reg.h"
 
 
-// returns false on error, true on success
+// functions returns false on error, true on success unless said otherwise in function comment
 
-
+static bool bm_i2c_set_tar_address(uint8_t i2c_num, uint8_t addr);
 
 // initialize I2C peripheral in master mode — must be called before any other I2C functions
 // configures GPIO pins, clock divider, and enables peripheral
@@ -61,12 +61,12 @@ bool bm_i2c_init(uint8_t *i2c_num, uint32_t clock_hz, uint8_t sda_pin, uint8_t s
     }
 
     //enable master mode, disable slave mode, enable restart, and set speed in IC_CON
-    i2c_peripherals[*i2c_num]->IC_CON &= ~( I2C_IC_CON_SPEED_Msk); //clear relevant bits first
-    i2c_peripherals[*i2c_num]->IC_CON |= 
-        ( I2C_IC_CON_MASTER_MODE_Msk) |
+    // i2c_peripherals[*i2c_num]->IC_CON &= ~( I2C_IC_CON_SPEED_Msk); //clear relevant bits first
+    i2c_peripherals[*i2c_num]->IC_CON = 
+        (( I2C_IC_CON_MASTER_MODE_Msk) |
         ( speed_mode << I2C_IC_CON_SPEED_SHIFT ) |
         ( I2C_IC_CON_IC_RESTART_EN_Msk ) |
-        ( I2C_IC_CON_IC_SLAVE_DISABLE_Msk );
+        ( I2C_IC_CON_IC_SLAVE_DISABLE_Msk ));
 
     // configure GPIO pins
     bm_gpio_set_function(sda_pin, GPIO_FUNC_I2C);
@@ -94,22 +94,27 @@ bool bm_i2c_init(uint8_t *i2c_num, uint32_t clock_hz, uint8_t sda_pin, uint8_t s
 bool bm_i2c_write(uint8_t i2c_num, uint8_t addr, const uint8_t *buf, size_t len) {
     if (len == 0) { return true; } //nothing to write, likely error on users part, the function itself succeeded since there are no bytes to write, so return true
      // validate peripheral number
-    if (i2c_num >= NUM_I2C_PAIRS) {
-        return false; //invalid peripheral number
-    }
+    if (i2c_num >= NUM_I2C_PAIRS) { return false; }//invalid peripheral number
 
     //wait for bus to be free before starting transaction to avoid collisions with other transactions
     uint32_t total_timeout = TOTAL_TIMEOUT_CYCLES;
     uint32_t timeout = TIMEOUT_CYCLES;
     while (bm_i2c_is_busy(i2c_num)) { 
-                if (timeout == 0) {return false;}
-                if (total_timeout == 0) {return false;}
+                if (timeout == 0) {
+                    bm_i2c_reset(i2c_num);
+                    return false;
+                }
+                if (total_timeout == 0) {
+                    bm_i2c_reset(i2c_num);
+                    return false;
+                }
                 total_timeout--;
                 timeout--;
             }
 
     //address phase - generate start condition and send address + set to write mode
-    i2c_peripherals[i2c_num]->IC_TAR = (addr & I2C_IC_TAR_IC_TAR_7BIT_Msk); //write mode is default when setting address, so just write the address to IC_TAR to start the transaction
+    if (!bm_i2c_set_tar_address(i2c_num, addr)) { return false; }
+    //write mode is default
 
     //writing the bytes - poll to see if TX is ready, then put data into IC_DATA_CMD data field len times
     for (uint16_t i = 0; i < len; i++) {
@@ -117,8 +122,14 @@ bool bm_i2c_write(uint8_t i2c_num, uint8_t addr, const uint8_t *buf, size_t len)
         timeout = TIMEOUT_CYCLES;
         // check if TX FIFO is full
         while ((i2c_peripherals[i2c_num]->IC_STATUS & I2C_IC_STATUS_TFNF_Msk) == 0) {  
-            if (timeout == 0) {return false;}
-            if (total_timeout == 0) {return false;}
+            if (timeout == 0) {
+                bm_i2c_reset(i2c_num);
+                return false;
+            }
+            if (total_timeout == 0) {
+                bm_i2c_reset(i2c_num);
+                return false;
+            }
             total_timeout--;
             timeout--;
         }
@@ -135,6 +146,7 @@ bool bm_i2c_write(uint8_t i2c_num, uint8_t addr, const uint8_t *buf, size_t len)
                 if (timeout == 0) {return false;}
                 if (total_timeout == 0) {return false;}
                 total_timeout--;
+                timeout--;
             }
         } else {
             i2c_peripherals[i2c_num]->IC_DATA_CMD = buf[i] & I2C_IC_DATA_CMD_DAT_Msk;
@@ -153,9 +165,7 @@ bool bm_i2c_write(uint8_t i2c_num, uint8_t addr, const uint8_t *buf, size_t len)
 bool bm_i2c_read(uint8_t i2c_num, uint8_t addr, uint8_t *buf, size_t len) {
     if (len == 0) { return true; } //nothing to read, likely error on users part, the function itself succeeded since there are no bytes to read, so return true
      // validate peripheral number
-    if (i2c_num >= NUM_I2C_PAIRS) {
-        return false; //invalid peripheral number
-    }
+    if (i2c_num >= NUM_I2C_PAIRS) { return false; }//invalid peripheral number
 
     //wait for bus to be free before starting transaction to avoid collisions with other transactions
     uint32_t total_timeout = TOTAL_TIMEOUT_CYCLES;
@@ -165,8 +175,8 @@ bool bm_i2c_read(uint8_t i2c_num, uint8_t addr, uint8_t *buf, size_t len) {
                 total_timeout--;
             }
 
-    //address phase - generate start condition and send address + set to write mode
-    i2c_peripherals[i2c_num]->IC_TAR = (addr & I2C_IC_TAR_IC_TAR_7BIT_Msk);
+    //address phase - generate start condition and send address 
+    if (!bm_i2c_set_tar_address(i2c_num, addr)) { return false; }
 
     //reading the bytes - poll to see if RX is ready, then read data from IC_DATA_CMD data field len times
     for (uint16_t i = 0; i < len; i++) {
@@ -182,8 +192,14 @@ bool bm_i2c_read(uint8_t i2c_num, uint8_t addr, uint8_t *buf, size_t len) {
         //poll and read byte when ready
         timeout = TIMEOUT_CYCLES;
         while ((i2c_peripherals[i2c_num]->IC_STATUS & I2C_IC_STATUS_RFNE_Msk) == 0) {  
-            if (timeout == 0) {return false;}
-            if (total_timeout == 0) {return false;}
+            if (timeout == 0) {
+                bm_i2c_reset(i2c_num);
+                return false;
+            }
+            if (total_timeout == 0) {
+                bm_i2c_reset(i2c_num);
+                return false;
+            }
             total_timeout--;
             timeout--;
         }
@@ -193,8 +209,14 @@ bool bm_i2c_read(uint8_t i2c_num, uint8_t addr, uint8_t *buf, size_t len) {
             //wait for transaction to complete before checking for errors in case of NAK on last byte
             timeout = TIMEOUT_CYCLES;
             while (bm_i2c_is_busy(i2c_num)) { 
-                if (timeout == 0) {return false;}
-                if (total_timeout == 0) {return false;}
+                if (timeout == 0) {
+                    bm_i2c_reset(i2c_num);
+                    return false;
+                }
+                if (total_timeout == 0) {
+                    bm_i2c_reset(i2c_num);
+                    return false;
+                }
                 total_timeout--;
             }
         }
@@ -214,9 +236,7 @@ bool bm_i2c_read(uint8_t i2c_num, uint8_t addr, uint8_t *buf, size_t len) {
 // pattern for sensor register reads (BMP390, LSM9DS1)
 bool bm_i2c_write_read(uint8_t i2c_num, uint8_t addr, uint8_t reg_addr, uint8_t *buf, size_t len) {
      // validate peripheral number
-    if (i2c_num >= NUM_I2C_PAIRS) {
-        return false; //invalid peripheral number
-    }
+    if (i2c_num >= NUM_I2C_PAIRS) { return false; }//invalid peripheral number
     if (len == 0) { return true; } //nothing to read, likely error on users part, the function itself succeeded since there are no bytes to read, so return true
 
     //wait for bus to be free before starting transaction to avoid collisions with other transactions
@@ -230,7 +250,8 @@ bool bm_i2c_write_read(uint8_t i2c_num, uint8_t addr, uint8_t reg_addr, uint8_t 
             }
 
     //address phase - generate start condition and send address + set to write mode
-    i2c_peripherals[i2c_num]->IC_TAR = (addr & I2C_IC_TAR_IC_TAR_7BIT_Msk); //write mode is default when setting address, so just write the address to IC_TAR to start the transaction
+    if (!bm_i2c_set_tar_address(i2c_num, addr)) { return false; }
+
     //poll and write byte when clear
     timeout = TIMEOUT_CYCLES;
         // check if TX FIFO is full
@@ -246,8 +267,14 @@ bool bm_i2c_write_read(uint8_t i2c_num, uint8_t addr, uint8_t reg_addr, uint8_t 
     //wait for address byte to be sent and acknowledged before starting the read phase
     timeout = TIMEOUT_CYCLES;
     while ((i2c_peripherals[i2c_num]->IC_STATUS & I2C_IC_STATUS_TFE_Msk) == 0) { 
-        if (timeout == 0) {return false;}
-        if (total_timeout == 0) {return false;}
+        if (timeout == 0) {
+            bm_i2c_reset(i2c_num);
+            return false;
+        }
+        if (total_timeout == 0) {
+            bm_i2c_reset(i2c_num);
+            return false;
+        }
         total_timeout--;
         timeout--;
     }
@@ -269,8 +296,14 @@ bool bm_i2c_write_read(uint8_t i2c_num, uint8_t addr, uint8_t reg_addr, uint8_t 
         //poll and read byte when ready
         timeout = TIMEOUT_CYCLES;
         while ((i2c_peripherals[i2c_num]->IC_STATUS & I2C_IC_STATUS_RFNE_Msk) == 0) {  
-            if (timeout == 0) {return false;}
-            if (total_timeout == 0) {return false;}
+            if (timeout == 0) {
+                bm_i2c_reset(i2c_num);
+                return false;
+            }
+            if (total_timeout == 0) {
+                bm_i2c_reset(i2c_num);
+                return false;
+            }
             total_timeout--;
             timeout--;
         }
@@ -280,8 +313,14 @@ bool bm_i2c_write_read(uint8_t i2c_num, uint8_t addr, uint8_t reg_addr, uint8_t 
             //wait for transaction to complete before checking for errors in case of NAK on last byte
             timeout = TIMEOUT_CYCLES;
             while (bm_i2c_is_busy(i2c_num)) { 
-                if (timeout == 0) {return false;}
-                if (total_timeout == 0) {return false;}
+                if (timeout == 0) {
+                    bm_i2c_reset(i2c_num);
+                    return false;
+                }
+                if (total_timeout == 0) {
+                    bm_i2c_reset(i2c_num);
+                    return false;
+                }
                 total_timeout--;
             }
         }
@@ -306,13 +345,56 @@ bool bm_i2c_is_busy(uint8_t i2c_num) {
 
 // reads IC_STATUS and IC_TX_ABRT_SOURCE into status_out and abort_out
 // useful for diagnosing NAK, arbitration loss, or timeout conditions
-bool bm_i2c_get_status(uint8_t i2c_num, uint32_t *status_out, uint32_t *abort_out) {
-    return false; //not implemented yet
+bool bm_i2c_get_status(uint8_t i2c_num, uint32_t *status_out, uint32_t *abort_out, uint32_t *ic_con_out) {
+    if (i2c_num >= NUM_I2C_PAIRS) { return false; }//invalid peripheral number
+    *status_out = i2c_peripherals[i2c_num]->IC_STATUS;
+    *abort_out = i2c_peripherals[i2c_num]->IC_TX_ABRT_SOURCE;
+    *ic_con_out = i2c_peripherals[i2c_num]->IC_CON;
+    return true; //success
 }
 
 // disable and re-enable the I2C peripheral to recover from a hung bus
 // use if SDA or SCL lines are stuck and normal transactions are not completing
 bool bm_i2c_reset(uint8_t i2c_num) {
-    return false; //not implemented yet
+    if (i2c_num >= NUM_I2C_PAIRS) { return false; }//invalid peripheral number
+    // disable I2C to allow configuration:
+    // clear IC_ENABLE[0]
+    i2c_peripherals[i2c_num]->IC_ENABLE &= ~I2C_IC_ENABLE_ENABLE_Msk;
+    // poll until IC_ENABLE_STATUS[0] reads 0 to ensure the peripheral is fully disabled before continuing with configuration
+    uint32_t timeout = TIMEOUT_CYCLES;
+    while (((i2c_peripherals[i2c_num]->IC_ENABLE_STATUS & I2C_IC_ENABLE_STATUS_IC_EN_Msk)) != 0) {
+        if (timeout == 0) { return false;}
+        timeout--;
+    }
+    //read to clear abort source to clear the abort condition that caused the bus to hang
+    (void)i2c_peripherals[i2c_num]->IC_TX_ABRT_SOURCE;
+
+    //reenable
+    i2c_peripherals[i2c_num]->IC_ENABLE |= I2C_IC_ENABLE_ENABLE_Msk;
+
+    return true; //success
 }
+
+
+bool bm_i2c_set_tar_address(uint8_t i2c_num, uint8_t addr) {
+    if (i2c_num >= NUM_I2C_PAIRS) { return false; }//invalid peripheral number
+    // disable I2C to allow configuration:
+    // clear IC_ENABLE[0]
+    i2c_peripherals[i2c_num]->IC_ENABLE &= ~I2C_IC_ENABLE_ENABLE_Msk;
+    // poll until IC_ENABLE_STATUS[0] reads 0 to ensure the peripheral is fully disabled before continuing with configuration
+    uint32_t timeout = TIMEOUT_CYCLES;
+    while (((i2c_peripherals[i2c_num]->IC_ENABLE_STATUS & I2C_IC_ENABLE_STATUS_IC_EN_Msk)) != 0) {
+        if (timeout == 0) {return false;}
+        timeout--;
+    }
+
+    //set address
+    i2c_peripherals[i2c_num]->IC_TAR = (addr & I2C_IC_TAR_IC_TAR_7BIT_Msk); //write mode is default when setting address, so just write the address to IC_TAR to start the transaction
+
+    //reenable
+    i2c_peripherals[i2c_num]->IC_ENABLE |= I2C_IC_ENABLE_ENABLE_Msk;
+    
+    return true; //success
+}
+
 

@@ -47,6 +47,7 @@ add_executable(i2c_test
     GPIO/gpio.c
     SysTick/systick.c
     I2C/i2c.c 
+    UART/uart.c # for debugging output
     I2C/i2c_test.c # main() here
 )
 

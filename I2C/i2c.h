@@ -52,7 +52,7 @@ bool bm_i2c_is_busy(uint8_t i2c_num);
 
 // reads IC_STATUS and IC_TX_ABRT_SOURCE into status_out and abort_out
 // useful for diagnosing NAK, arbitration loss, or timeout conditions
-bool bm_i2c_get_status(uint8_t i2c_num, uint32_t *status_out, uint32_t *abort_out);
+bool bm_i2c_get_status(uint8_t i2c_num, uint32_t *status_out, uint32_t *abort_out, uint32_t *ic_con_out);
 
 // disable and re-enable the I2C peripheral to recover from a hung bus
 // use if SDA or SCL lines are stuck and normal transactions are not completing
