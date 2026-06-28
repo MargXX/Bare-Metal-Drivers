@@ -58,6 +58,9 @@ bool bm_i2c_get_status(uint8_t i2c_num, uint32_t *status_out, uint32_t *abort_ou
 // use if SDA or SCL lines are stuck and normal transactions are not completing
 bool bm_i2c_reset(uint8_t i2c_num);
 
+// for outside functions checking validity of i2c_num within other drivers like the BMP390 driver
+bool bm_i2c_is_valid(uint8_t i2c_num);
+
 //add functions later to adjust settings like clock speed, addressing mode, or to disable/enable interrupts as needed
 
 #endif /* I2C_H */

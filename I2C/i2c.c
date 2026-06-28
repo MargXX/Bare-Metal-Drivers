@@ -396,4 +396,10 @@ bool bm_i2c_set_tar_address(uint8_t i2c_num, uint8_t addr) {
     return true; //success
 }
 
+//return false if i2c not initialized and true if it is
+bool bm_i2c_is_valid(uint8_t i2c_num){
+    if (i2c_num > NUM_I2C_PAIRS) {return false;}
+    if ((i2c_peripherals[i2c_num]->IC_ENABLE & I2C_IC_ENABLE_ENABLE_Msk) == 0) {return false;}
+    return true;
+}
 

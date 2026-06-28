@@ -35,6 +35,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <math.h> // for ldexpf, which gives us the power-of-two scaling 
 #include "bmp390_platform.h"
 
 // All functions return false on error, true on success (matches the stack
@@ -91,9 +92,8 @@ typedef enum {
 } bmp390_iir_t;
 
 
-/* ------------------------------------------------------------------ */
-/* Public structs                                                      */
-/* ------------------------------------------------------------------ */
+// Public structs                                                     
+// ------------------------------------------------------------------ 
 
 // Sensor configuration the caller fills and passes to bm_bmp390_configure.
 typedef struct {
