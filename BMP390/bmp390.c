@@ -5,7 +5,7 @@
 #include "../SysTick/systick.h"
 
 //powers of two for the floats. shortcut for readability in the calib parsing
-static float power_of_two(uint8_t pow);
+static float power_of_two(uint16_t pow);
 
 // Initialize a sensor handle: stores i2c_num/addr, verifies CHIP_ID, issues a
 // soft reset, then reads and quantizes the calibration coefficients.
@@ -16,13 +16,13 @@ bool bm_bmp390_init(bmp390_t *dev, uint8_t i2c_num, uint8_t dev_addr) {
     //verify inputs
     if (!bm_i2c_is_valid(i2c_num)) { return false; }
     if (!dev) { return false; }
-    //setit feilds for dev
+    //set fields for dev
     dev->initialized = false; // set this true when finished
     //test chip ID to verify inputs
-    uint8_t id_arr[1];
-    if (!bm_i2c_write_read(i2c_num, dev_addr, BMP390_REG_CHIP_ID, id_arr, 1) || id_arr[0] != BMP390_CHIP_ID_VALUE) { return false; }
     dev->i2c_num = i2c_num;
     dev->addr = dev_addr;
+    uint8_t id;
+    if(!bm_bmp390_read_chip_id(dev, &id) || id != BMP390_CHIP_ID_VALUE) { return false;}
     //soft reset the device to ensure it's in a known state before reading calibration data
     if (!bm_bmp390_soft_reset(dev)) { return false; }
     //grab calib
@@ -36,20 +36,20 @@ bool bm_bmp390_init(bmp390_t *dev, uint8_t i2c_num, uint8_t dev_addr) {
         )) { return false; }
     // translate into floats with powers from datasheet
     bmp390_calib_t calib_data = {
-        .par_t1   =         (calib_arr[0] + ( calib_arr[1] << 8 )   )    * power_of_two(8),     // 2^-8 
-        .par_t2   =         (calib_arr[2] + ( calib_arr[3] << 8 )   )    / power_of_two(30),    // 2^30 
-        .par_t3   = ((int8_t)calib_arr[4]                           )    / power_of_two(48),    // 2^48 signed
-        .par_p1   = ((int8_t)calib_arr[5] + ( calib_arr[6] << 8 )   )    / power_of_two(20),    // 2^20 signed
-        .par_p2   = ((int8_t)calib_arr[7] + ( calib_arr[8] << 8 )   )    / power_of_two(29),    // 2^29 signed
-        .par_p3   = ((int8_t)calib_arr[9]                           )    / power_of_two(32),    // 2^32 signed
-        .par_p4   = ((int8_t)calib_arr[10]                          )    / power_of_two(37),    // 2^37 signed
-        .par_p5   =         (calib_arr[11] + ( calib_arr[12] << 8 ) )    * power_of_two(3),     // 2^-3
-        .par_p6   =         (calib_arr[13] + ( calib_arr[14] << 8 ) )    / power_of_two(6),     // 2^6
-        .par_p7   = ((int8_t)calib_arr[15]                          )    / power_of_two(8),     // 2^8 signed
-        .par_p8   = ((int8_t)calib_arr[16]                          )    / power_of_two(15),    // 2^15 signed
-        .par_p9   = ((int8_t)calib_arr[17] + ( calib_arr[18] << 8 )  )    / power_of_two(48),    // 2^48 signed
-        .par_p10  = ((int8_t)calib_arr[19]                          )    / power_of_two(48),    // 2^48 signed
-        .par_p11  = ((int8_t)calib_arr[20]                          )    / power_of_two(65),    // 2^65 signed
+        .par_t1   =         (calib_arr[0] | ( calib_arr[1] << 8 )   )                       * power_of_two(8),     // 2^-8 
+        .par_t2   =         (calib_arr[2] | ( calib_arr[3] << 8 )   )                       / power_of_two(30),    // 2^30 
+        .par_t3   = (int8_t)(calib_arr[4]                           )                       / power_of_two(48),    // 2^48 signed
+        .par_p1   =((int16_t)(calib_arr[5] | ( calib_arr[6] << 8 )  ) - power_of_two(14))  / power_of_two(20),    // 2^20 signed
+        .par_p2   =((int16_t)(calib_arr[7] | ( calib_arr[8] << 8 )  ) - power_of_two(14))  / power_of_two(29),    // 2^29 signed
+        .par_p3   = (int8_t)(calib_arr[9]                           )                       / power_of_two(32),    // 2^32 signed
+        .par_p4   = (int8_t)(calib_arr[10]                          )                       / power_of_two(37),    // 2^37 signed
+        .par_p5   =         (calib_arr[11] | ( calib_arr[12] << 8 ) )                       * power_of_two(3),     // 2^-3
+        .par_p6   =         (calib_arr[13] | ( calib_arr[14] << 8 ) )                       / power_of_two(6),     // 2^6
+        .par_p7   = (int8_t)(calib_arr[15]                          )                       / power_of_two(8),     // 2^8 signed
+        .par_p8   = (int8_t)(calib_arr[16]                          )                       / power_of_two(15),    // 2^15 signed
+        .par_p9   = (int16_t)(calib_arr[17] | ( calib_arr[18] << 8 ))                       / power_of_two(48),    // 2^48 signed
+        .par_p10  = (int8_t)(calib_arr[19]                          )                       / power_of_two(48),    // 2^48 signed
+        .par_p11  = (int8_t)(calib_arr[20]                          )                       / power_of_two(65),    // 2^65 signed
         .t_lin = 0.0f,
     };
     dev->calib = calib_data;
@@ -62,6 +62,7 @@ bool bm_bmp390_init(bmp390_t *dev, uint8_t i2c_num, uint8_t dev_addr) {
 // Apply a configuration (enables, mode, oversampling, ODR, IIR filter).
 // Writes PWR_CTRL, OSR, ODR, and CONFIG.
 bool bm_bmp390_configure(bmp390_t *dev, const bmp390_config_t *cfg) {
+    
     return false; //not yet implemented
 }
 
@@ -86,22 +87,48 @@ bool bm_bmp390_data_ready(bmp390_t *dev, bool *ready_out) {
 
 // Issue a soft reset (CMD = softreset) and wait for the device to come back.
 bool bm_bmp390_soft_reset(bmp390_t *dev) {
-    return false; //not yet implemented
+    //check that the device has been initialized before trying to reset it
+    uint8_t buf[2] = {BMP390_REG_CMD, BMP390_CMD_SOFTRESET};
+    //write soft reset
+    if (!bm_i2c_write(
+        dev->i2c_num, 
+        dev->addr, 
+        buf, 
+        2
+    )) { return false; }
+    //poll to wait until done
+    uint32_t timeout = BMP390_TIMEOUT_CYCLES;
+    uint8_t statusbuf[1] = {0};
+    //make a delay to allow the device to process the reset before polling for status
+    bm_systick_delay_ms(2);
+    while ((statusbuf[0] & BMP390_STATUS_CMD_RDY_Msk) == 0) {
+        if (timeout == 0) { return false; }
+        timeout--;
+        bm_i2c_write_read(dev->i2c_num, dev->addr, BMP390_REG_STATUS, statusbuf, 1);
+    }
+    return true; //success
 }
 
 // Read CHIP_ID into *id_out (expected value defined in bmp390_reg.h). Useful
 // as a standalone bus/sanity check.
 bool bm_bmp390_read_chip_id(bmp390_t *dev, uint8_t *id_out) {
-    return false; //not yet implemented
+    uint8_t id_arr[1];
+    if (!bm_i2c_write_read(dev->i2c_num, dev->addr, BMP390_REG_CHIP_ID, id_arr, 1 )) { return false; }
+    *id_out = id_arr[0];
+    return true; //success
 }
 
 // Read ERR_REG and STATUS into the provided pointers for diagnostics
-// (fatal/cmd/conf errors, cmd-ready, data-ready). Pass NULL to skip either.
+// (fatal/cmd/conf errors, cmd-ready, data-ready). Pass NULL to skip either but will return false if both are skipped.
 bool bm_bmp390_get_status(bmp390_t *dev, uint8_t *err_out, uint8_t *status_out) {
-    return false; //not yet implemented
+    if (!dev->initialized) { return false; }
+    if (err_out == NULL && status_out == NULL) { return false; } //likely user error, but the function itself succeeded since there are no outputs to write to, so return true
+    if (status_out != NULL && !bm_i2c_write_read(dev->i2c_num, dev->addr, BMP390_REG_STATUS, status_out, 1 )) { return false; }
+    if (err_out != NULL && !bm_i2c_write_read(dev->i2c_num, dev->addr, BMP390_REG_ERR_REG, err_out, 1 )) { return false; }
+    return true; //success
 }
 
 
-float power_of_two(uint8_t pow){
+float power_of_two(uint16_t pow){
     return ldexpf(1.0f, pow); // returns 1.0 * 2^pow, handles positive and negative powers
 }

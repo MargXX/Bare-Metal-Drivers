@@ -181,7 +181,7 @@ bool bm_bmp390_soft_reset(bmp390_t *dev);
 bool bm_bmp390_read_chip_id(bmp390_t *dev, uint8_t *id_out);
 
 // Read ERR_REG and STATUS into the provided pointers for diagnostics
-// (fatal/cmd/conf errors, cmd-ready, data-ready). Pass NULL to skip either.
+// (fatal/cmd/conf errors, cmd-ready, data-ready). Pass NULL to skip either but will return false if both are skipped.
 bool bm_bmp390_get_status(bmp390_t *dev, uint8_t *err_out, uint8_t *status_out);
 
 // add later as needed: FIFO read path, interrupt (INT_CTRL) configuration,

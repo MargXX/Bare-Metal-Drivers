@@ -45,7 +45,7 @@ bool bm_i2c_init(uint8_t *i2c_num, uint32_t clock_hz, uint8_t sda_pin, uint8_t s
     //dissasert reset  - RP2040 SPECIFIC
     RESETS->RESET &= ~i2c_resets_reset_mask[*i2c_num];
     // poll until reset is done
-    uint32_t timeout = TIMEOUT_CYCLES;
+    uint32_t timeout = I2C_TIMEOUT_CYCLES;
     while (((RESETS->DONE & i2c_resets_reset_done_mask[*i2c_num])) == 0) {
         if (timeout == 0) {return false;}
         timeout--;
@@ -54,7 +54,7 @@ bool bm_i2c_init(uint8_t *i2c_num, uint32_t clock_hz, uint8_t sda_pin, uint8_t s
     // clear IC_ENABLE[0]
     i2c_peripherals[*i2c_num]->IC_ENABLE &= ~I2C_IC_ENABLE_ENABLE_Msk;
     // poll until IC_ENABLE_STATUS[0] reads 0 to ensure the peripheral is fully disabled before continuing with configuration
-    timeout = TIMEOUT_CYCLES;
+    timeout = I2C_TIMEOUT_CYCLES;
     while (((i2c_peripherals[*i2c_num]->IC_ENABLE_STATUS & I2C_IC_ENABLE_STATUS_IC_EN_Msk)) != 0) {
         if (timeout == 0) {return false;}
         timeout--;
@@ -97,8 +97,8 @@ bool bm_i2c_write(uint8_t i2c_num, uint8_t addr, const uint8_t *buf, size_t len)
     if (i2c_num >= NUM_I2C_PAIRS) { return false; }//invalid peripheral number
 
     //wait for bus to be free before starting transaction to avoid collisions with other transactions
-    uint32_t total_timeout = TOTAL_TIMEOUT_CYCLES;
-    uint32_t timeout = TIMEOUT_CYCLES;
+    uint32_t total_timeout = I2C_TOTAL_TIMEOUT_CYCLES;
+    uint32_t timeout = I2C_TIMEOUT_CYCLES;
     while (bm_i2c_is_busy(i2c_num)) { 
                 if (timeout == 0) {
                     bm_i2c_reset(i2c_num);
@@ -119,7 +119,7 @@ bool bm_i2c_write(uint8_t i2c_num, uint8_t addr, const uint8_t *buf, size_t len)
     //writing the bytes - poll to see if TX is ready, then put data into IC_DATA_CMD data field len times
     for (uint16_t i = 0; i < len; i++) {
         //poll and write byte when clear
-        timeout = TIMEOUT_CYCLES;
+        timeout = I2C_TIMEOUT_CYCLES;
         // check if TX FIFO is full
         while ((i2c_peripherals[i2c_num]->IC_STATUS & I2C_IC_STATUS_TFNF_Msk) == 0) {  
             if (timeout == 0) {
@@ -139,9 +139,9 @@ bool bm_i2c_write(uint8_t i2c_num, uint8_t addr, const uint8_t *buf, size_t len)
             i2c_peripherals[i2c_num]->IC_DATA_CMD = (buf[i] & I2C_IC_DATA_CMD_DAT_Msk) | I2C_IC_DATA_CMD_STOP_Msk;
             
             //wait for transaction to complete before checking for errors in case of NAK on last byte
-            volatile uint32_t delay = DELAY_CYCLE_COUNT;
+            volatile uint32_t delay = I2C_DELAY_CYCLE_COUNT;
             while (delay-- > 0) {} //gap to allow I2C_IC_STATUS_TFE to update
-            timeout = TIMEOUT_CYCLES;
+            timeout = I2C_TIMEOUT_CYCLES;
             while (bm_i2c_is_busy(i2c_num)) { 
                 if (timeout == 0) {return false;}
                 if (total_timeout == 0) {return false;}
@@ -168,8 +168,8 @@ bool bm_i2c_read(uint8_t i2c_num, uint8_t addr, uint8_t *buf, size_t len) {
     if (i2c_num >= NUM_I2C_PAIRS) { return false; }//invalid peripheral number
 
     //wait for bus to be free before starting transaction to avoid collisions with other transactions
-    uint32_t total_timeout = TOTAL_TIMEOUT_CYCLES;
-    uint32_t timeout = TIMEOUT_CYCLES;
+    uint32_t total_timeout = I2C_TOTAL_TIMEOUT_CYCLES;
+    uint32_t timeout = I2C_TIMEOUT_CYCLES;
     while (bm_i2c_is_busy(i2c_num)) { 
                 if (total_timeout == 0) {return false;}
                 total_timeout--;
@@ -190,7 +190,7 @@ bool bm_i2c_read(uint8_t i2c_num, uint8_t addr, uint8_t *buf, size_t len) {
         }
          
         //poll and read byte when ready
-        timeout = TIMEOUT_CYCLES;
+        timeout = I2C_TIMEOUT_CYCLES;
         while ((i2c_peripherals[i2c_num]->IC_STATUS & I2C_IC_STATUS_RFNE_Msk) == 0) {  
             if (timeout == 0) {
                 bm_i2c_reset(i2c_num);
@@ -207,7 +207,7 @@ bool bm_i2c_read(uint8_t i2c_num, uint8_t addr, uint8_t *buf, size_t len) {
         buf[i] = i2c_peripherals[i2c_num]->IC_DATA_CMD & I2C_IC_DATA_CMD_DAT_Msk; //mask out the data bits and ignore the command bit
         if (i == len - 1) {
             //wait for transaction to complete before checking for errors in case of NAK on last byte
-            timeout = TIMEOUT_CYCLES;
+            timeout = I2C_TIMEOUT_CYCLES;
             while (bm_i2c_is_busy(i2c_num)) { 
                 if (timeout == 0) {
                     bm_i2c_reset(i2c_num);
@@ -240,8 +240,8 @@ bool bm_i2c_write_read(uint8_t i2c_num, uint8_t addr, uint8_t reg_addr, uint8_t 
     if (len == 0) { return true; } //nothing to read, likely error on users part, the function itself succeeded since there are no bytes to read, so return true
 
     //wait for bus to be free before starting transaction to avoid collisions with other transactions
-    uint32_t total_timeout = TOTAL_TIMEOUT_CYCLES;
-    uint32_t timeout = TIMEOUT_CYCLES;
+    uint32_t total_timeout = I2C_TOTAL_TIMEOUT_CYCLES;
+    uint32_t timeout = I2C_TIMEOUT_CYCLES;
     while (bm_i2c_is_busy(i2c_num)) { 
                 if (timeout == 0) {return false;}
                 if (total_timeout == 0) {return false;}
@@ -253,7 +253,7 @@ bool bm_i2c_write_read(uint8_t i2c_num, uint8_t addr, uint8_t reg_addr, uint8_t 
     if (!bm_i2c_set_tar_address(i2c_num, addr)) { return false; }
 
     //poll and write byte when clear
-    timeout = TIMEOUT_CYCLES;
+    timeout = I2C_TIMEOUT_CYCLES;
         // check if TX FIFO is full
     while ((i2c_peripherals[i2c_num]->IC_STATUS & I2C_IC_STATUS_TFNF_Msk) == 0) {  
         if (timeout == 0) {return false;}
@@ -265,7 +265,7 @@ bool bm_i2c_write_read(uint8_t i2c_num, uint8_t addr, uint8_t reg_addr, uint8_t 
     i2c_peripherals[i2c_num]->IC_DATA_CMD = reg_addr & I2C_IC_DATA_CMD_DAT_Msk;
 
     //wait for address byte to be sent and acknowledged before starting the read phase
-    timeout = TIMEOUT_CYCLES;
+    timeout = I2C_TIMEOUT_CYCLES;
     while ((i2c_peripherals[i2c_num]->IC_STATUS & I2C_IC_STATUS_TFE_Msk) == 0) { 
         if (timeout == 0) {
             bm_i2c_reset(i2c_num);
@@ -294,7 +294,7 @@ bool bm_i2c_write_read(uint8_t i2c_num, uint8_t addr, uint8_t reg_addr, uint8_t 
         i2c_peripherals[i2c_num]->IC_DATA_CMD = data_cmd_mask;
          
         //poll and read byte when ready
-        timeout = TIMEOUT_CYCLES;
+        timeout = I2C_TIMEOUT_CYCLES;
         while ((i2c_peripherals[i2c_num]->IC_STATUS & I2C_IC_STATUS_RFNE_Msk) == 0) {  
             if (timeout == 0) {
                 bm_i2c_reset(i2c_num);
@@ -311,7 +311,7 @@ bool bm_i2c_write_read(uint8_t i2c_num, uint8_t addr, uint8_t reg_addr, uint8_t 
         buf[i] = i2c_peripherals[i2c_num]->IC_DATA_CMD & I2C_IC_DATA_CMD_DAT_Msk; //mask out the data bits and ignore the command bit
         if (i == len - 1) {
             //wait for transaction to complete before checking for errors in case of NAK on last byte
-            timeout = TIMEOUT_CYCLES;
+            timeout = I2C_TIMEOUT_CYCLES;
             while (bm_i2c_is_busy(i2c_num)) { 
                 if (timeout == 0) {
                     bm_i2c_reset(i2c_num);
@@ -360,7 +360,7 @@ bool bm_i2c_reset(uint8_t i2c_num) {
     // clear IC_ENABLE[0]
     i2c_peripherals[i2c_num]->IC_ENABLE &= ~I2C_IC_ENABLE_ENABLE_Msk;
     // poll until IC_ENABLE_STATUS[0] reads 0 to ensure the peripheral is fully disabled before continuing with configuration
-    uint32_t timeout = TIMEOUT_CYCLES;
+    uint32_t timeout = I2C_TIMEOUT_CYCLES;
     while (((i2c_peripherals[i2c_num]->IC_ENABLE_STATUS & I2C_IC_ENABLE_STATUS_IC_EN_Msk)) != 0) {
         if (timeout == 0) { return false;}
         timeout--;
@@ -381,7 +381,7 @@ bool bm_i2c_set_tar_address(uint8_t i2c_num, uint8_t addr) {
     // clear IC_ENABLE[0]
     i2c_peripherals[i2c_num]->IC_ENABLE &= ~I2C_IC_ENABLE_ENABLE_Msk;
     // poll until IC_ENABLE_STATUS[0] reads 0 to ensure the peripheral is fully disabled before continuing with configuration
-    uint32_t timeout = TIMEOUT_CYCLES;
+    uint32_t timeout = I2C_TIMEOUT_CYCLES;
     while (((i2c_peripherals[i2c_num]->IC_ENABLE_STATUS & I2C_IC_ENABLE_STATUS_IC_EN_Msk)) != 0) {
         if (timeout == 0) {return false;}
         timeout--;

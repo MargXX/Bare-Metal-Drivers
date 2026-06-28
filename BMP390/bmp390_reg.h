@@ -21,7 +21,9 @@
 
 #include <stdint.h>
 
-
+#define BMP390_DELAY_CYCLE_COUNT 8UL
+#define BMP390_TOTAL_TIMEOUT_CYCLES 0x000FFFFFUL
+#define BMP390_TIMEOUT_CYCLES 0x0000FFFFUL
 
 // Identity / expected values                                         
 #define BMP390_CHIP_ID_VALUE      0x60    // expected CHIP_ID readback — DS §4.3.1
@@ -118,28 +120,12 @@
 #define BMP390_CMD_SOFTRESET      0xB6    // triggers power-on-reset
 
 
-/* ------------------------------------------------------------------ */
-/* Calibration / trimming coefficients (DS §3.11.1, Table 24)          */
-/*                                                                     */
-/* Read this whole block in one burst at init, then parse into the     */
-/* quantized float coefficients (see bmp390_calib_t in bmp390.h).      */
-/*                                                                     */
-/* Layout (little-endian, low byte first):                             */
-/*   NVM_PAR_T1   0x31..0x32   u16                                      */
-/*   NVM_PAR_T2   0x33..0x34   u16                                      */
-/*   NVM_PAR_T3   0x35         s8                                       */
-/*   NVM_PAR_P1   0x36..0x37   s16                                      */
-/*   NVM_PAR_P2   0x38..0x39   s16                                      */
-/*   NVM_PAR_P3   0x3A         s8                                       */
-/*   NVM_PAR_P4   0x3B         s8                                       */
-/*   NVM_PAR_P5   0x3C..0x3D   u16                                      */
-/*   NVM_PAR_P6   0x3E..0x3F   u16                                      */
-/*   NVM_PAR_P7   0x40         s8                                       */
-/*   NVM_PAR_P8   0x41         s8                                       */
-/*   NVM_PAR_P9   0x42..0x43   s16                                      */
-/*   NVM_PAR_P10  0x44         s8                                       */
-/*   NVM_PAR_P11  0x45         s8                                       */
-/* ------------------------------------------------------------------ */
+
+// Calibration / trimming coefficients (DS §3.11.1, Table 24)        
+//                                                                   
+// Read this whole block in one burst at init, then parse into the   
+// quantized float coefficients (see bmp390_calib_t in bmp390.h). 
+// ------------------------------------------------------------------
 
 #define BMP390_REG_CALIB_DATA     0x31  // start address of the calib block (DS Table 24)
 #define BMP390_CALIB_DATA_LEN     0x15  // number of bytes to burst-read

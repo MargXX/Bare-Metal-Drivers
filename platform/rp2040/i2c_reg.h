@@ -20,6 +20,11 @@
 #define I2C_FS_MIN_PLUS_LOW_TIME    500UL  // ns
 
 
+#define I2C_DELAY_CYCLE_COUNT 8UL
+#define I2C_TOTAL_TIMEOUT_CYCLES 0xFFFFFFFFUL
+#define I2C_TIMEOUT_CYCLES 0x0FFFFFFFUL
+
+
 typedef struct {  
     uint8_t sda;
     uint8_t scl;
