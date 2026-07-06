@@ -41,4 +41,22 @@ typedef struct {
 
 #define IO_BANK_Msk  0b00011111
 
+
+//IO_BAKN0 CTRL register function select values
+
+
+//from datasheet section 2.1.2
+// Addr + 0x0000 : normal read write access
+// Addr + 0x1000 : atomic XOR on write
+// Addr + 0x2000 : atomic bitmask set on write
+// Addr + 0x3000 : atomic bitmask clear on write
+
+#define REG_ALIAS_SET_OFFSET  0x2000u
+#define REG_ALIAS_CLR_OFFSET  0x3000u
+
+#define IO_BANK0_SET    ((volatile gpio_pin_regs_t *)(IO_BANK0_BASE + REG_ALIAS_SET_OFFSET))
+#define IO_BANK0_CLR    ((volatile gpio_pin_regs_t *)(IO_BANK0_BASE + REG_ALIAS_CLR_OFFSET))
+
+
+
 #endif /* GPIO_REG_H */

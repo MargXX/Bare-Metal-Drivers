@@ -15,10 +15,9 @@ bool bm_gpio_set_function(uint8_t pin, uint8_t function) {
     }
 
     //clear bits 4:0 
-    uint32_t mask = IO_BANK_Msk; 
-    IO_BANK0[pin].ctrl &= ~mask; //keep all bits but mask
-    function &= mask; //keep only bits of mask
-    IO_BANK0[pin].ctrl |= function; 
+    uint32_t masked_function = function & IO_BANK_Msk;
+    IO_BANK0_CLR[pin].ctrl = IO_BANK_Msk; //keep all bits but mask
+    IO_BANK0_SET[pin].ctrl = masked_function; //keep only bits of mask
     return true;
 }
 
