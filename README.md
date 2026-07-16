@@ -14,7 +14,7 @@ This driver stack is the foundation layer of a larger flight computer project: a
 |SysTick         |Complete   |ISR-driven millisecond timing. 125MHz processor clock.                                       |
 |UART            |Complete   |Verified on hardware. TX confirmed via logic analyzer and serial monitor.                    |
 |I2C             |Complete   |All transaction functions verified on hardware. First sensor read (BMP390 CHIP_ID) confirmed.|
-|BMP390 (device) |In Progress|Headers complete. `bmp390.c` implementation in progress.                                     |
+|BMP390 (device) |In Progress|`bmp390.c` logic complete (init, configure, soft reset, data-ready, forced/normal reads, float compensation). Build and hardware verification pending.|
 |LSM9DS1 (device)|Planned    |Depends on I2C                                                                               |
 |SPI             |Optional   |Needed if onboard flash logging is added                                                     |
 |W25Q128 (device)|Optional   |Depends on SPI                                                                               |
@@ -59,7 +59,7 @@ Bare-Metal-Drivers/
     ├── bmp390.h
     ├── bmp390_reg.h
     ├── bmp390_platform.h
-    ├── bmp390.c            (in progress)
+    ├── bmp390.c            (logic complete, build/verify pending)
     └── bmp390_test.c       (in progress)
 ```
 
