@@ -209,6 +209,9 @@ bool bm_bmp390_data_ready(bmp390_t *dev, bool *ready_out) {
 // Issue a soft reset (CMD = softreset) and wait for the device to come back.
 bool bm_bmp390_soft_reset(bmp390_t *dev) {
     //check that the device has been initialized before trying to reset it
+    if (dev == NULL) { return false; }
+    if (dev->initialized == false) { return false; }
+
     uint8_t buf[2] = {BMP390_REG_CMD, BMP390_CMD_SOFTRESET};
     //write soft reset
     if (!bm_i2c_write(
@@ -233,6 +236,9 @@ bool bm_bmp390_soft_reset(bmp390_t *dev) {
 // Read CHIP_ID into *id_out (expected value defined in bmp390_reg.h). Useful
 // as a standalone bus/sanity check.
 bool bm_bmp390_read_chip_id(bmp390_t *dev, uint8_t *id_out) {
+    if (dev == NULL) { return false; }
+    if (id_out == NULL) { return false; }
+
     uint8_t id_arr[1];
     if (!bm_i2c_write_read(dev->i2c_num, dev->addr, BMP390_REG_CHIP_ID, id_arr, 1 )) { return false; }
     *id_out = id_arr[0];
@@ -242,6 +248,7 @@ bool bm_bmp390_read_chip_id(bmp390_t *dev, uint8_t *id_out) {
 // Read ERR_REG and STATUS into the provided pointers for diagnostics
 // (fatal/cmd/conf errors, cmd-ready, data-ready). Pass NULL to skip either but will return false if both are skipped.
 bool bm_bmp390_get_status(bmp390_t *dev, uint8_t *err_out, uint8_t *status_out) {
+    if (dev == NULL) { return false; }
     if (!dev->initialized) { return false; }
     if (err_out == NULL && status_out == NULL) { return false; } //likely user error, but the function itself succeeded since there are no outputs to write to, so return true
     if (status_out != NULL && !bm_i2c_write_read(dev->i2c_num, dev->addr, BMP390_REG_STATUS, status_out, 1 )) { return false; }
