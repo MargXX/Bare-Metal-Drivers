@@ -184,6 +184,10 @@ bool bm_bmp390_read_chip_id(bmp390_t *dev, uint8_t *id_out);
 // (fatal/cmd/conf errors, cmd-ready, data-ready). Pass NULL to skip either but will return false if both are skipped.
 bool bm_bmp390_get_status(bmp390_t *dev, uint8_t *err_out, uint8_t *status_out);
 
+// Fill a bmp390_config_t with a reasonable default configuration. Caller can
+// then modify fields before passing to bm_bmp390_configure. Returns false if the pointer is NULL.
+bool bm_bmp390_default_config(bmp390_config_t *cfg);
+
 // add later as needed: FIFO read path, interrupt (INT_CTRL) configuration,
 // altitude conversion from pressure.
 

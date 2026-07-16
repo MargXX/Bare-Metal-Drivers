@@ -62,8 +62,67 @@ bool bm_bmp390_init(bmp390_t *dev, uint8_t i2c_num, uint8_t dev_addr) {
 // Apply a configuration (enables, mode, oversampling, ODR, IIR filter).
 // Writes PWR_CTRL, OSR, ODR, and CONFIG.
 bool bm_bmp390_configure(bmp390_t *dev, const bmp390_config_t *cfg) {
-    
-    return false; //not yet implemented
+    if (dev == NULL) { return false; }
+    if (cfg == NULL) { return false; }
+    if (dev->initialized == false) { return false; }
+    uint8_t buf[2];
+
+    //write OSR
+    uint8_t osr = 0;
+    osr |= ((cfg->osr_p << BMP390_OSR_OSR_P_Pos) & BMP390_OSR_OSR_P_Msk);
+    osr |= ((cfg->osr_t << BMP390_OSR_OSR_T_Pos) & BMP390_OSR_OSR_T_Msk);
+    buf[0] = BMP390_REG_OSR;
+    buf[1] = osr;
+    if (!bm_i2c_write(
+        dev->i2c_num, 
+        dev->addr, 
+        buf, 
+        2
+    )) { return false; }
+
+    //write ODR
+    uint8_t odr = 0;
+    odr |= ((cfg->odr << BMP390_ODR_ODR_SEL_Pos) & BMP390_ODR_ODR_SEL_Msk);
+    buf[0] = BMP390_REG_ODR;
+    buf[1] = odr;
+    if (!bm_i2c_write(
+        dev->i2c_num, 
+        dev->addr, 
+        buf,
+        2
+    )) { return false; }
+
+    //write CONFIG/IIR filter
+    uint8_t config = 0;
+    config |= ((cfg->iir << BMP390_CONFIG_IIR_FILTER_Pos) & BMP390_CONFIG_IIR_FILTER_Msk);
+    buf[0] = BMP390_REG_CONFIG;
+    buf[1] = config;
+    if (!bm_i2c_write(
+        dev->i2c_num, 
+        dev->addr, 
+        buf,
+        2
+    )) { return false; }
+
+    //write PWR_CTRL
+    uint8_t pwr_ctrl = 0;
+    if (cfg->press_en) {
+        pwr_ctrl |= BMP390_PWR_CTRL_PRESS_EN_Msk;
+    }
+    if (cfg->temp_en) {
+        pwr_ctrl |= BMP390_PWR_CTRL_TEMP_EN_Msk;
+    }
+    pwr_ctrl |= ((cfg->mode << BMP390_PWR_CTRL_MODE_Pos) & BMP390_PWR_CTRL_MODE_Msk);
+    buf[0] = BMP390_REG_PWR_CTRL;
+    buf[1] = pwr_ctrl;
+    if (!bm_i2c_write(
+        dev->i2c_num, 
+        dev->addr, 
+        buf, 
+        2
+    )) { return false; }
+
+    return true; //success
 }
 
 // Read one compensated sample. Intended for NORMAL mode: optionally checks the
@@ -82,6 +141,8 @@ bool bm_bmp390_read_forced(bmp390_t *dev, bmp390_data_t *out) {
 // Poll the data-ready state (STATUS.drdy_press / drdy_temp). Writes the result
 // to *ready_out.
 bool bm_bmp390_data_ready(bmp390_t *dev, bool *ready_out) {
+    
+    
     return false; //not yet implemented
 }
 
@@ -125,6 +186,20 @@ bool bm_bmp390_get_status(bmp390_t *dev, uint8_t *err_out, uint8_t *status_out) 
     if (err_out == NULL && status_out == NULL) { return false; } //likely user error, but the function itself succeeded since there are no outputs to write to, so return true
     if (status_out != NULL && !bm_i2c_write_read(dev->i2c_num, dev->addr, BMP390_REG_STATUS, status_out, 1 )) { return false; }
     if (err_out != NULL && !bm_i2c_write_read(dev->i2c_num, dev->addr, BMP390_REG_ERR_REG, err_out, 1 )) { return false; }
+    return true; //success
+}
+
+// Fill a bmp390_config_t with a reasonable default configuration. Caller can
+// then modify fields before passing to bm_bmp390_configure. Returns false if the pointer is NULL.
+bool bm_bmp390_default_config(bmp390_config_t *cfg){
+    if (cfg == NULL) { return false; }
+    cfg->press_en = true;
+    cfg->temp_en = true;
+    cfg->mode = BMP390_MODE_NORMAL;
+    cfg->osr_p = BMP390_OSR_X8;
+    cfg->osr_t = BMP390_OSR_X1;
+    cfg->odr = BMP390_ODR_25_HZ;
+    cfg->iir = BMP390_IIR_COEF_0;
     return true; //success
 }
 
