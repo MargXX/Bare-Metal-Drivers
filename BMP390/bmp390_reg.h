@@ -24,6 +24,7 @@
 #define BMP390_DELAY_CYCLE_COUNT 8UL
 #define BMP390_TOTAL_TIMEOUT_CYCLES 0x000FFFFFUL
 #define BMP390_TIMEOUT_CYCLES 0x0000FFFFUL
+#define BMP390_TIMEOUT_MS 100UL
 
 // Identity / expected values                                         
 #define BMP390_CHIP_ID_VALUE      0x60    // expected CHIP_ID readback — DS §4.3.1
@@ -129,6 +130,10 @@
 
 #define BMP390_REG_CALIB_DATA     0x31  // start address of the calib block (DS Table 24)
 #define BMP390_CALIB_DATA_LEN     0x15  // number of bytes to burst-read
+
+#define BMP390_PRESS_DATA_LEN 3UL
+#define BMP390_TEMP_DATA_LEN 3UL
+#define BMP390_DATA_LEN (BMP390_PRESS_DATA_LEN + BMP390_TEMP_DATA_LEN)
 
 
 

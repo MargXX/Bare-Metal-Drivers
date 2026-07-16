@@ -7,6 +7,15 @@
 //powers of two for the floats. shortcut for readability in the calib parsing
 static float power_of_two(uint16_t pow);
 
+// compensate a raw temperature reading into a float in degrees C. Uses the bosch float formula from the datasheet. Updates the t_lin field in the calib struct for use in pressure compensation.
+static float compensate_temperature(bmp390_calib_t *calib, uint32_t uncomp_temp);
+
+// compensate a raw pressure reading into a float in pascals. Uses the bosch float formula from the datasheet. Uses the t_lin field in the calib struct, which must have been updated by a prior call to compensate_temperature.
+static float compensate_pressure(bmp390_calib_t *calib, uint32_t uncomp_press);
+
+// read and compensate a sample. Returns true if successful, false if any I2C transaction fails. Writes the compensated values to *out.
+static bool read_and_compensate(bmp390_t *dev, bmp390_data_t *out);
+
 // Initialize a sensor handle: stores i2c_num/addr, verifies CHIP_ID, issues a
 // soft reset, then reads and quantizes the calibration coefficients.
 // Does NOT start measurements — call bm_bmp390_configure afterward.
@@ -18,6 +27,7 @@ bool bm_bmp390_init(bmp390_t *dev, uint8_t i2c_num, uint8_t dev_addr) {
     if (!dev) { return false; }
     //set fields for dev
     dev->initialized = false; // set this true when finished
+    dev->configured = false; // set this true when finished
     //test chip ID to verify inputs
     dev->i2c_num = i2c_num;
     dev->addr = dev_addr;
@@ -122,28 +132,78 @@ bool bm_bmp390_configure(bmp390_t *dev, const bmp390_config_t *cfg) {
         2
     )) { return false; }
 
+    dev->cfg = *cfg; //store the last configuration applied for reference
+    dev->configured = true; //set this true when finished
+
     return true; //success
 }
 
 // Read one compensated sample. Intended for NORMAL mode: optionally checks the
 // data-ready flag, burst-reads DATA_0..DATA_5, and applies compensation.
 bool bm_bmp390_read(bmp390_t *dev, bmp390_data_t *out) {
-    return false; //not yet implemented
+    if (dev == NULL) { return false; }
+    if (out == NULL) { return false; }
+    if (dev->initialized == false) { return false; }
+    if (dev->configured == false) { return false; }
+
+    if (!read_and_compensate(dev, out)) { return false; }
+
+    return true; //success
 }
 
 // Trigger a single FORCED-mode measurement, wait for data-ready (with a
 // timeout via SysTick), then read and compensate. Use when sampling on demand
 // rather than continuously.
 bool bm_bmp390_read_forced(bmp390_t *dev, bmp390_data_t *out) {
-    return false; //not yet implemented
+    if (dev == NULL) { return false; }
+    if (out == NULL) { return false; }
+    if (dev->initialized == false) { return false; }
+    if (dev->configured == false) { return false; }
+
+    //set power control to forced mode with the current enables
+    uint8_t pwr_ctrl = 0;
+    pwr_ctrl |= ((BMP390_MODE_FORCED << BMP390_PWR_CTRL_MODE_Pos) & BMP390_PWR_CTRL_MODE_Msk);
+    if (dev->cfg.press_en) { pwr_ctrl |= BMP390_PWR_CTRL_PRESS_EN_Msk; }
+    if (dev->cfg.temp_en) { pwr_ctrl |= BMP390_PWR_CTRL_TEMP_EN_Msk;}
+    if (!bm_i2c_write(
+        dev->i2c_num, 
+        dev->addr, 
+        (uint8_t[]){BMP390_REG_PWR_CTRL, pwr_ctrl}, 
+        2
+    )) { return false; }
+    
+    //wait for data ready with timeout
+    uint32_t start_ms;
+    bool ready = false;
+    bm_systick_get_ms(&start_ms);
+    while (!ready) {
+        if (bm_systick_timeout_elapsed(start_ms, BMP390_TIMEOUT_MS)) { return false; }
+        bm_bmp390_data_ready(dev, &ready);
+    }
+
+    if (!read_and_compensate(dev, out)) { return false; }
+
+    return true; //success
 }
 
 // Poll the data-ready state (STATUS.drdy_press / drdy_temp). Writes the result
-// to *ready_out.
+// to *ready_out. Returns true when both temperature and pressure are ready. Can only return true if both temperature and pressure are enabled.
 bool bm_bmp390_data_ready(bmp390_t *dev, bool *ready_out) {
+    if (dev == NULL) { return false; }
+    if (ready_out == NULL) { return false; }
+    if (dev->initialized == false) { return false; }
+
+    uint8_t statusbuf[1] = {0};
+    if (!bm_i2c_write_read(
+        dev->i2c_num, 
+        dev->addr, 
+        BMP390_REG_STATUS, 
+        statusbuf, 
+        1
+    )) {return false;}
+    ready_out[0] = (statusbuf[0] & (BMP390_STATUS_DRDY_PRESS_Msk | BMP390_STATUS_DRDY_TEMP_Msk)) == (BMP390_STATUS_DRDY_PRESS_Msk | BMP390_STATUS_DRDY_TEMP_Msk);
     
-    
-    return false; //not yet implemented
+    return true; //success
 }
 
 // Issue a soft reset (CMD = softreset) and wait for the device to come back.
@@ -204,6 +264,81 @@ bool bm_bmp390_default_config(bmp390_config_t *cfg){
 }
 
 
-float power_of_two(uint16_t pow){
+static float power_of_two(uint16_t pow){
     return ldexpf(1.0f, pow); // returns 1.0 * 2^pow, handles positive and negative powers
+}
+
+//code sourced from Bosch BMP390 datasheet, section 8.5
+static float compensate_temperature(bmp390_calib_t *calib, uint32_t uncomp_temp) {
+
+    float partial_data1 = (float)(uncomp_temp - calib->par_t1);
+    float partial_data2 = (float)(partial_data1 * calib->par_t2);
+
+
+    //update t_lin as needed for pressure compensation
+    calib->t_lin = partial_data2 + (partial_data1 * partial_data1) * calib->par_t3;
+
+    return calib->t_lin;
+}
+
+//code sourced from Bosch BMP390 datasheet, section 8.6
+static float compensate_pressure(bmp390_calib_t *calib, uint32_t uncomp_press) {
+    //var to store compensated pressure
+    float comp_press;
+    //calculate partial data
+    float partial_data1 = calib->par_p6 * calib->t_lin;
+    float partial_data2 = calib->par_p7 * (calib->t_lin * calib->t_lin);
+    float partial_data3 = calib->par_p8 * (calib->t_lin * calib->t_lin * calib->t_lin);
+    float partial_out1 = calib->par_p5 + partial_data1 + partial_data2 + partial_data3;
+    
+    partial_data1 = calib->par_p2 * calib->t_lin;
+    partial_data2 = calib->par_p3 * (calib->t_lin * calib->t_lin);
+    partial_data3 = calib->par_p4 * (calib->t_lin * calib->t_lin * calib->t_lin);
+    float partial_out2 = (float)uncomp_press * (calib->par_p1 + partial_data1 + partial_data2 + partial_data3);
+
+    partial_data1 = (float)uncomp_press * (float)uncomp_press;
+    partial_data2 = calib->par_p9 + calib->par_p10 * calib->t_lin;
+    partial_data3 = partial_data1 * partial_data2;
+    float partial_data4 = partial_data3 + ((float)uncomp_press * (float)uncomp_press * (float)uncomp_press) * calib->par_p11;
+    
+    comp_press = partial_out1 + partial_out2 + partial_data4;
+
+    return comp_press;
+}
+
+// read and compensate a sample. Returns true if successful, false if any I2C transaction fails. Writes the compensated values to *out.
+static bool read_and_compensate(bmp390_t *dev, bmp390_data_t *out){
+    if (dev == NULL) { return false; }
+    if (out == NULL) { return false; }
+    if (dev->initialized == false) { return false; }
+    if (dev->configured == false) { return false; }
+
+    uint8_t buf[BMP390_DATA_LEN]; 
+
+    //read raw data
+    if (!bm_i2c_write_read(
+        dev->i2c_num, 
+        dev->addr, 
+        BMP390_REG_DATA_0, 
+        buf, 
+        BMP390_DATA_LEN
+    )) { return false; }
+
+    //convert lSB->MSB to 24-bit signed integers
+    uint32_t press_raw = 0; //pressure data
+    for (int i = 0; i<BMP390_PRESS_DATA_LEN; i++) {
+        press_raw |= ((uint32_t)buf[i] << (8*i));
+    }
+    uint32_t temp_raw = 0; //temperature data
+    for (int i = 0; i<BMP390_TEMP_DATA_LEN; i++) {
+        temp_raw |= ((uint32_t)buf[i + BMP390_PRESS_DATA_LEN] << (8*i));
+    }
+
+    //temperature compensation
+    out->temperature_c = compensate_temperature(&dev->calib, temp_raw);
+
+    //pressure compensation
+    out->pressure_pa = compensate_pressure(&dev->calib, press_raw);
+
+    return true; //success
 }

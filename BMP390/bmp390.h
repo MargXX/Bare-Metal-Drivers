@@ -141,7 +141,9 @@ typedef struct {
     uint8_t        i2c_num;       // which I2C peripheral (passed to bm_i2c_*)
     uint8_t        addr;          // 7-bit device address (see bmp390_platform.h)
     bmp390_calib_t calib;         // factory coefficients, read at init
+    bmp390_config_t cfg;          // last configuration applied (for reference)
     bool           initialized;   // set true once init succeeds
+    bool          configured;     // set true once configure succeeds
 } bmp390_t;
 
 
@@ -170,7 +172,7 @@ bool bm_bmp390_read(bmp390_t *dev, bmp390_data_t *out);
 bool bm_bmp390_read_forced(bmp390_t *dev, bmp390_data_t *out);
 
 // Poll the data-ready state (STATUS.drdy_press / drdy_temp). Writes the result
-// to *ready_out.
+// to *ready_out. Returns true when both temperature and pressure are ready. Can only return true if both temperature and pressure are enabled.
 bool bm_bmp390_data_ready(bmp390_t *dev, bool *ready_out);
 
 // Issue a soft reset (CMD = softreset) and wait for the device to come back.
