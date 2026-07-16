@@ -12,6 +12,6 @@ int main() {
     // potential crash if we return from main, so just loop forever
     while(1) {
         bm_gpio_toggle(25);
-        bm_systick_delay_ms(500);
+        bm_systick_delay_ms(50);
     }
 }
