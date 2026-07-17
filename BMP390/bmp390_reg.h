@@ -125,7 +125,7 @@
 // Calibration / trimming coefficients (DS §3.11.1, Table 24)        
 //                                                                   
 // Read this whole block in one burst at init, then parse into the   
-// quantized float coefficients (see bmp390_calib_t in bmp390.h). 
+// quantized float coefficien
 // ------------------------------------------------------------------
 
 #define BMP390_REG_CALIB_DATA     0x31  // start address of the calib block (DS Table 24)

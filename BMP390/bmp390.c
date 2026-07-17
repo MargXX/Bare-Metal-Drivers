@@ -312,7 +312,7 @@ static float compensate_pressure(bmp390_calib_t *calib, uint32_t uncomp_press) {
 }
 
 // read and compensate a sample. Returns true if successful, false if any I2C transaction fails. Writes the compensated values to *out.
-static bool read_and_compensate(bmp390_t *dev, bmp390_data_t *out){
+static bool read_and_compensate(bmp390_t *dev, bmp390_data_t *out) {
     if (dev == NULL) { return false; }
     if (out == NULL) { return false; }
     if (dev->initialized == false) { return false; }
