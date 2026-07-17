@@ -208,9 +208,7 @@ bool bm_bmp390_data_ready(bmp390_t *dev, bool *ready_out) {
 
 // Issue a soft reset (CMD = softreset) and wait for the device to come back.
 bool bm_bmp390_soft_reset(bmp390_t *dev) {
-    //check that the device has been initialized before trying to reset it
     if (dev == NULL) { return false; }
-    if (dev->initialized == false) { return false; }
 
     uint8_t buf[2] = {BMP390_REG_CMD, BMP390_CMD_SOFTRESET};
     //write soft reset

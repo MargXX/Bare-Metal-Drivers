@@ -22,6 +22,8 @@
 #define BMP390_I2C_ADDR_SDO_LOW   ((uint8_t)0x76)
 #define BMP390_I2C_ADDR_SDO_HIGH  ((uint8_t)0x77)
 
+#define BMP390_CHIP_ID_VALUE 0x60
+
 // Convenience default for the current board (SDO high). Change per board.
 #define BMP390_I2C_ADDR_DEFAULT   BMP390_I2C_ADDR_SDO_HIGH
 

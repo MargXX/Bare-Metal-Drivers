@@ -51,6 +51,16 @@ add_executable(i2c_test
     I2C/i2c_test.c # main() here
 )
 
+add_executable(bmp390_test
+    GPIO/gpio.c
+    SysTick/systick.c
+    I2C/i2c.c 
+    BMP390/bmp390.c
+    Debug/debug_print.c # for debugging output
+    UART/uart.c # for debugging output
+    BMP390/bmp390_test.c # main() here
+)
+
 # ensures an elf is made with the name gpio_test.elf instead of just gpio_test
 set_target_properties(gpio_test PROPERTIES OUTPUT_NAME "gpio_test.elf")
 # set_target_properties(systick_test PROPERTIES OUTPUT_NAME "systick_test.elf")
