@@ -18,16 +18,13 @@ int main() {
     uint8_t uart_num;
     bool result;
     result = bm_uart_init(&uart_num, 115200, 8, 9); // GP8/GP9
-    if (!result) { blink_loop(3000); } //very slow blink on init failure
+    if (!result) { blink_loop(100); } //very slow blink on init failure
     uint8_t i2c_num;
     result = bm_i2c_init(&i2c_num, I2C_MODE_STANDARD, 0, 1); // GP0/GP1
-    if (!result) { blink_loop(3000); } //very slow blink on init failure
+    if (!result) { blink_loop(100); } //very slow blink on init failure
 
     // 3 blinks — signals start of test
-    for (int i = 0; i < 3; i++) {
-        bm_gpio_toggle(25);
-        bm_systick_delay_ms(500);
-    }
+    blink_n_times(3);
 
     //TESTS BELOW
     //---------------------------------------------
@@ -127,7 +124,9 @@ int main() {
     }
 
     //read normal
-
+    while (!ready) {
+        bm_bmp390_data_ready(&dev, &ready);
+    }
     bmp390_data_t data;
     result = bm_bmp390_read(&dev, &data);
     bm_debug_print_result(uart_num, result, "BMP390 read normal");
@@ -158,7 +157,7 @@ int main() {
         bm_debug_print_labeled_hex8(uart_num, "BMP390 STATUS", status);
     }
 
-
+    bm_uart_write_str(uart_num, "BMP390 test complete. Blinking LED to signal end of test.");
 
 
     blink_loop(1000);// everything done, blink to signal end of test

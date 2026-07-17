@@ -57,6 +57,7 @@ add_executable(bmp390_test
     I2C/i2c.c 
     BMP390/bmp390.c
     Debug/debug_print.c # for debugging output
+    Debug/debug_blink.c # for debugging output
     UART/uart.c # for debugging output
     BMP390/bmp390_test.c # main() here
 )
@@ -66,7 +67,7 @@ set_target_properties(gpio_test PROPERTIES OUTPUT_NAME "gpio_test.elf")
 # set_target_properties(systick_test PROPERTIES OUTPUT_NAME "systick_test.elf")
 set_target_properties(uart_test PROPERTIES OUTPUT_NAME "uart_test.elf")
 set_target_properties(i2c_test PROPERTIES OUTPUT_NAME "i2c_test.elf")
-
+set_target_properties(bmp390_test PROPERTIES OUTPUT_NAME "bmp390_test.elf")
 
 # set up linker
 # linker stitches together .o files(object) and .a files(libraries) to create executable
@@ -74,6 +75,7 @@ target_link_libraries(gpio_test pico_runtime)
 # target_link_libraries(systick_test pico_runtime)
 target_link_libraries(uart_test pico_runtime)
 target_link_libraries(i2c_test pico_runtime)
+target_link_libraries(bmp390_test pico_runtime)
 
 
 
