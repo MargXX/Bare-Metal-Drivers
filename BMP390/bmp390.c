@@ -192,6 +192,7 @@ bool bm_bmp390_data_ready(bmp390_t *dev, bool *ready_out) {
     if (dev == NULL) { return false; }
     if (ready_out == NULL) { return false; }
     if (dev->initialized == false) { return false; }
+    if (dev->configured == false) { return false; }
 
     uint8_t statusbuf[1] = {0};
     if (!bm_i2c_write_read(
@@ -270,7 +271,7 @@ bool bm_bmp390_default_config(bmp390_config_t *cfg){
 
 
 static float power_of_two(uint16_t pow){
-    return ldexpf(1.0f, pow); // returns 1.0 * 2^pow, handles positive and negative powers
+    return ldexpf(1.0f, pow); // returns 1.0 * 2^pow, handles positive 
 }
 
 //code sourced from Bosch BMP390 datasheet, section 8.5

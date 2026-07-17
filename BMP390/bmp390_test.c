@@ -7,6 +7,17 @@
 #include "../Debug/debug_blink.h"
 #include "bmp390_reg.h"
 
+
+static void print_status_check(bmp390_t *dev, uint8_t uart_num) {
+    uint8_t err, status;
+    bool result = bm_bmp390_get_status(dev, &err, &status);
+    bm_debug_print_result(uart_num, result, "BMP390 get status");
+    bm_debug_print_labeled_hex8(uart_num, "BMP390 ERR_REG", err);
+    bm_debug_print_labeled_hex8(uart_num, "BMP390 STATUS", status);
+}
+
+
+
 int main() {
     bm_systick_init();
 
@@ -32,7 +43,7 @@ int main() {
     bmp390_t dev;
     //init
     result = bm_bmp390_init(&dev, i2c_num, BMP390_I2C_ADDR_DEFAULT );
-    bm_debug_print_result(uart_num, result, "BMP390 init");
+    bm_debug_print_result(uart_num, result, "\nBMP390 init");
 
     // ID check
     uint8_t id;
@@ -65,12 +76,7 @@ int main() {
             calib1, 
             BMP390_CALIB_DATA_LEN
         );
-    if (!result) {
-        result = bm_bmp390_get_status(&dev, &err, &status);
-        bm_debug_print_result(uart_num, result, "BMP390 get status");
-        bm_debug_print_labeled_hex8(uart_num, "BMP390 ERR_REG", err);
-        bm_debug_print_labeled_hex8(uart_num, "BMP390 STATUS", status);
-    }
+    if (!read1_ok) { print_status_check(&dev, uart_num); }
     bm_systick_delay_ms(2); //wait a bit before reading again
     bool read2_ok = bm_i2c_write_read(
             i2c_num, 
@@ -88,12 +94,7 @@ int main() {
                 result = false;
             }
         }
-    } else {
-        result = bm_bmp390_get_status(&dev, &err, &status);
-        bm_debug_print_result(uart_num, result, "BMP390 get status");
-        bm_debug_print_labeled_hex8(uart_num, "BMP390 ERR_REG", err);
-        bm_debug_print_labeled_hex8(uart_num, "BMP390 STATUS", status);
-    } 
+    } else { print_status_check(&dev, uart_num); } 
     bm_debug_print_result(uart_num, result, "BMP390 calib read consistency");
 
 
@@ -102,12 +103,7 @@ int main() {
     bm_debug_print_result(uart_num, result, "BMP390 default config");
     result = bm_bmp390_configure(&dev, &dev.cfg);
     bm_debug_print_result(uart_num, result, "BMP390 configure with default config");
-    if (!result) {
-        result = bm_bmp390_get_status(&dev, &err, &status);
-        bm_debug_print_result(uart_num, result, "BMP390 get status");
-        bm_debug_print_labeled_hex8(uart_num, "BMP390 ERR_REG", err);
-        bm_debug_print_labeled_hex8(uart_num, "BMP390 STATUS", status);
-    }
+    if (!result) { print_status_check(&dev, uart_num); } 
 
     //data_ready
     bool ready;
@@ -116,12 +112,7 @@ int main() {
     if (result) {
         bm_uart_write_str(uart_num, "BMP390 data ready: ");
         bm_debug_print_bool(uart_num, ready);
-    } else {
-        result = bm_bmp390_get_status(&dev, &err, &status);
-        bm_debug_print_result(uart_num, result, "BMP390 get status");
-        bm_debug_print_labeled_hex8(uart_num, "BMP390 ERR_REG", err);
-        bm_debug_print_labeled_hex8(uart_num, "BMP390 STATUS", status);
-    }
+    } else { print_status_check(&dev, uart_num); } 
 
     //read normal
     while (!ready) {
@@ -135,12 +126,7 @@ int main() {
         bm_debug_print_dec32(uart_num, (uint32_t)data.pressure_pa);
         bm_uart_write_str(uart_num, "BMP390 temperature (C)");
         bm_debug_print_dec32(uart_num, (uint32_t)data.temperature_c);
-    } else {
-        result = bm_bmp390_get_status(&dev, &err, &status);
-        bm_debug_print_result(uart_num, result, "BMP390 get status");
-        bm_debug_print_labeled_hex8(uart_num, "BMP390 ERR_REG", err);
-        bm_debug_print_labeled_hex8(uart_num, "BMP390 STATUS", status);
-    }
+    } else { print_status_check(&dev, uart_num); } 
 
     //read forced
     result = bm_bmp390_read_forced(&dev, &data);
@@ -150,18 +136,110 @@ int main() {
         bm_debug_print_dec32(uart_num, (uint32_t)data.pressure_pa);
         bm_uart_write_str(uart_num, "BMP390 temperature (C)");
         bm_debug_print_dec32(uart_num, (uint32_t)data.temperature_c);
-    } else {
+    } else { print_status_check(&dev, uart_num); } 
+
+    //null guard tests
+    bm_uart_write_str(uart_num, "\nBMP390 dev null guard tests\n");
+    //init
+    result = bm_bmp390_init(NULL, i2c_num, BMP390_I2C_ADDR_DEFAULT);
+    result |= bm_bmp390_init(&dev, 255, BMP390_I2C_ADDR_DEFAULT);
+    bm_debug_print_result(uart_num, !result, "BMP390 init null");
+    if (result) { print_status_check(&dev, uart_num); } 
+    //configure
+    result = bm_bmp390_configure(NULL, &dev.cfg);
+    result |= bm_bmp390_configure(&dev, NULL);
+    bm_debug_print_result(uart_num, !result, "BMP390 configure null");
+    if (result) { print_status_check(&dev, uart_num); } 
+    //read
+    result = bm_bmp390_read(NULL, &data);
+    result |= bm_bmp390_read(&dev, NULL);
+    bm_debug_print_result(uart_num, !result, "BMP390 read null");
+    if (result) {
         result = bm_bmp390_get_status(&dev, &err, &status);
         bm_debug_print_result(uart_num, result, "BMP390 get status");
-        bm_debug_print_labeled_hex8(uart_num, "BMP390 ERR_REG", err);
+        bm_debug_print_labeled_hex8(uart_num, "BMP390 ERR_REG", err );
         bm_debug_print_labeled_hex8(uart_num, "BMP390 STATUS", status);
-    }
+    }  
+    //read forced
+    result = bm_bmp390_read_forced(NULL, &data);
+    result |= bm_bmp390_read_forced(&dev, NULL);
+    bm_debug_print_result(uart_num, !result, "BMP390 read forced null");
+    if (result) { print_status_check(&dev, uart_num); } 
+    //data ready
+    result = bm_bmp390_data_ready(NULL, &ready);
+    result |= bm_bmp390_data_ready(&dev, NULL);
+    bm_debug_print_result(uart_num, !result, "BMP390 data ready null");
+    if (result) { print_status_check(&dev, uart_num); } 
+    //soft reset
+    result = bm_bmp390_soft_reset(NULL);
+    bm_debug_print_result(uart_num, !result, "BMP390 soft reset null");
+    if (result) { print_status_check(&dev, uart_num); } 
+    //read chip id
+    result = bm_bmp390_read_chip_id(NULL, &id);
+    result |= bm_bmp390_read_chip_id(&dev, NULL);
+    bm_debug_print_result(uart_num, !result, "BMP390 read chip id null");
+    if (result) { print_status_check(&dev, uart_num); } 
+    //get status
+    result = bm_bmp390_get_status(NULL, &err, &status);
+    result |= bm_bmp390_get_status(&dev, NULL, &status);
+    result |= bm_bmp390_get_status(&dev, &err, NULL);
+    bm_debug_print_result(uart_num, !result, "BMP390 get status null");
+    //default config
+    result = bm_bmp390_default_config(NULL);
+    bm_debug_print_result(uart_num, !result, "BMP390 default config null");
+    if (result) { print_status_check(&dev, uart_num); }
 
-    bm_uart_write_str(uart_num, "BMP390 test complete. Blinking LED to signal end of test.");
+
+    //init guard tests
+    bm_uart_write_str(uart_num, "BMP390 init guard tests\n");
+    bmp390_t dev2 = dev; //shallow copy dev to dev2 to test init guard
+    dev2.initialized = false; //force unconfigured state
+    dev2.configured = true; //force configured state to isolate init guard
+    //init already tested when init is off
+    //config
+    result = bm_bmp390_configure(&dev2, &dev2.cfg);
+    bm_debug_print_result(uart_num, !result, "BMP390 configure init guard");
+    if (result) { print_status_check(&dev, uart_num); } 
+    //read
+    result = bm_bmp390_read(&dev2, &data);
+    bm_debug_print_result(uart_num, !result, "BMP390 read init guard");
+    if (result) { print_status_check(&dev, uart_num); } 
+    //read forced
+    result = bm_bmp390_read_forced(&dev2, &data);
+    bm_debug_print_result(uart_num, !result, "BMP390 read forced init guard");
+    if (result) { print_status_check(&dev, uart_num); } 
+    //data ready
+    result = bm_bmp390_data_ready(&dev2, &ready);
+    bm_debug_print_result(uart_num, !result, "BMP390 data ready init guard");
+    if (result) { print_status_check(&dev, uart_num); } 
+    //chip ID and soft reset in init do dont need init guard
+    //get status
+    result = bm_bmp390_get_status(&dev2, &err, &status);
+    bm_debug_print_result(uart_num, !result, "BMP390 get status init guard");
+    if (result) { print_status_check(&dev, uart_num); } 
+
+    //configure guard tests
+    bm_uart_write_str(uart_num, "BMP390 configure guard tests\n");
+    dev2.configured = false; //force unconfigured state
+    dev2.initialized = true; //force initialized state to isolate configure guard
+    //just the reads and data ready need configure guard
+    //read
+    result = bm_bmp390_read(&dev2, &data);
+    bm_debug_print_result(uart_num, !result, "BMP390 read configure guard");
+    if (result) { print_status_check(&dev, uart_num); } 
+    //read forced
+    result = bm_bmp390_read_forced(&dev2, &data);
+    bm_debug_print_result(uart_num, !result, "BMP390 read forced configure guard");
+    if (result) { print_status_check(&dev, uart_num); } 
+    //data ready
+    result = bm_bmp390_data_ready(&dev2, &ready);
+    bm_debug_print_result(uart_num, !result, "BMP390 data ready configure guard");
+    if (result) { print_status_check(&dev, uart_num); }
+
+
+    bm_uart_write_str(uart_num, "BMP390 test complete. Blinking LED to signal end of test. \n");
 
 
     blink_loop(1000);// everything done, blink to signal end of test
 
 }
-
-//TODO: test null guards
