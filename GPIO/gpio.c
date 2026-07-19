@@ -15,7 +15,6 @@ bool bm_gpio_set_function(uint8_t pin, uint8_t function) {
     }
 
     //clear bits 4:0 
-    uint32_t masked_function = function & IO_BANK_Msk;
     IO_BANK0_XOR[pin].ctrl = (IO_BANK0[pin].ctrl ^ (uint32_t)function) & IO_BANK_Msk;
 
     return true;

@@ -127,16 +127,16 @@
 #define BMP390_REG_CALIB_DATA     0x31  // start address of the calib block (DS Table 24)
 #define BMP390_CALIB_DATA_LEN     0x15  // number of bytes to burst-read
 
-#define BMP390_PRESS_DATA_LEN 3UL
-#define BMP390_TEMP_DATA_LEN 3UL
+#define BMP390_PRESS_DATA_LEN 3
+#define BMP390_TEMP_DATA_LEN 3
 #define BMP390_DATA_LEN (BMP390_PRESS_DATA_LEN + BMP390_TEMP_DATA_LEN)
 
 
 
-/* will fill these in when I add interrupts,  
-/* the FIFO, or the I2C watchdog. Not needed for a basic forced/normal
-/* mode pressure+temperature read.                                    
-/* ================================================================== 
+// will fill these in when I add interrupts,  
+// the FIFO, or the I2C watchdog. Not needed for a basic forced/normal
+// mode pressure+temperature read.                                    
+// ================================================================== 
 
 // #define BMP390_REG_INT_CTRL           // DS §4.3.15
 // #define BMP390_REG_IF_CONF            // DS §4.3.16
