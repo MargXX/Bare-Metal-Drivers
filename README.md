@@ -137,6 +137,18 @@ openocd -f interface/cmsis-dap.cfg -f target/rp2040.cfg \
 ```bash
 screen /dev/ttyACM0 115200
 ```
+## Sensor Driver Testing (In Progress)
+
+The verification stack is structured across three distinct layers to optimize feedback speed and test coverage:
+
+1. **Host-Side Unit Tests:** Driver logic (such as compensation formulas) is compiled for the host architecture and executed against mocked I2C register files and fake SysTick implementations. Tests use a captured, real-world BMP390 calibration data blob as a fixture to catch pure-logic regressions in under a second with no hardware attached.
+2. **Hardware-in-the-Loop (HIL):** A `pytest` harness drives the physical RP2040 board over UART via a lightweight ASCII command protocol. This layer validates the driver against the actual physical sensor hardware to verify real-world timing and bus behavior.
+3. **Continuous Integration (CI):** A GitHub Actions workflow cross-compiles every test and application target on every `push` and `pull_request` to catch compilation failures and toolchain regressions automatically.
+
+### Flight Simulation & Replay
+Planned for the flight computer stage: a replay harness that feeds 23+ hours of logged
+flight data, including a 12 G ascent, back through the stack for fault injection.
+
 
 -----
 
