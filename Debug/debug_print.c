@@ -71,7 +71,7 @@ void bm_debug_print_dec32_signed(uint8_t uart_num, int32_t value) {
     char out_buf[11 + 2];  // optional '-' + 10 digits + CRLF
 
     uint8_t count = 0;
-    bool is_negative = true;
+    bool is_negative = false;
     uint32_t magnitude;
 
     if (value < 0) {

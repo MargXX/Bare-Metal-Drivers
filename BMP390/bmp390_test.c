@@ -54,7 +54,7 @@ int main() {
     // ID check
     uint8_t id;
     result = bm_bmp390_read_chip_id(&dev, &id);
-    if (!result || id != BMP390_CHIP_ID_VALUE) { 
+    if (!result && id != BMP390_CHIP_ID_VALUE) { 
         bm_debug_print_result(uart_num, false, "BMP390 ID check");
         bm_debug_print_labeled_hex8(uart_num, "BMP390 ID instead returned", id);
     } else {
@@ -262,8 +262,8 @@ int main() {
     result &= bm_bmp390_soft_reset(&dev3);
     //check all settings at default
     uint8_t pwr_ctrl, osr;
-    bm_i2c_write_read(i2c_num, dev3.addr, BMP390_REG_PWR_CTRL, pwr_ctrl, 1);
-    bm_i2c_write_read(i2c_num, dev3.addr, BMP390_REG_OSR, osr, 1);
+    bm_i2c_write_read(i2c_num, dev3.addr, BMP390_REG_PWR_CTRL, &pwr_ctrl, 1);
+    bm_i2c_write_read(i2c_num, dev3.addr, BMP390_REG_OSR, &osr, 1);
     result &= osr == 0x02; //default from datsheet
     result &= pwr_ctrl == 0x00; //default from datsheet
     bm_debug_print_result(uart_num, result, "BMP390 soft reset check");
@@ -279,7 +279,6 @@ int main() {
     result &= power_of_two(4) == 16;
     result &= power_of_two(5) == 32;
     bm_debug_print_result(uart_num,result,"BMP390 Power of Two test");
-    //TODO: finish writing power of 2 test for pico
 
     bm_uart_write_str(uart_num, "BMP390 test complete. Blinking LED to signal end of test. \r\n");
 

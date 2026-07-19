@@ -159,7 +159,7 @@ bool bm_bmp390_read_forced(bmp390_t *dev, bmp390_data_t *out) {
     if (out == NULL) { return false; }
     if (dev->initialized == false) { return false; }
     if (dev->configured == false) { return false; }
-    if (dev->cfg.mode != BMP390_MODE_FORCED || dev->cfg.mode != BMP390_MODE_SLEEP) { return false; }
+    if (!(dev->cfg.mode == BMP390_MODE_FORCED || dev->cfg.mode == BMP390_MODE_SLEEP)) { return false; }
 
     //set power control to forced mode with the current enables
     uint8_t pwr_ctrl = 0;
