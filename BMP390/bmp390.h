@@ -162,7 +162,7 @@ bool bm_bmp390_init(bmp390_t *dev, uint8_t i2c_num, uint8_t dev_addr);
 // Writes PWR_CTRL, OSR, ODR, and CONFIG.
 bool bm_bmp390_configure(bmp390_t *dev, const bmp390_config_t *cfg);
 
-// Read one compensated sample. Intended for NORMAL mode: optionally checks the
+// Read one compensated sample. Intended for NORMAL mode: does not check the
 // data-ready flag, burst-reads DATA_0..DATA_5, and applies compensation.
 bool bm_bmp390_read(bmp390_t *dev, bmp390_data_t *out);
 
@@ -172,7 +172,7 @@ bool bm_bmp390_read(bmp390_t *dev, bmp390_data_t *out);
 bool bm_bmp390_read_forced(bmp390_t *dev, bmp390_data_t *out);
 
 // Poll the data-ready state (STATUS.drdy_press / drdy_temp). Writes the result
-// to *ready_out. Returns true when both temperature and pressure are ready. Can only return true if both temperature and pressure are enabled.
+// to *ready_out. ready_out is true when both temperature and pressure are ready. ready_out can only be true if both temperature and pressure are enabled.
 bool bm_bmp390_data_ready(bmp390_t *dev, bool *ready_out);
 
 // Issue a soft reset (CMD = softreset) and wait for the device to come back.

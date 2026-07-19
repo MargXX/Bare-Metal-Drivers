@@ -25,6 +25,9 @@ void bm_debug_print_hex32(uint8_t uart_num, uint32_t value);
 // print a 32-bit value as decimal digits + \r\n (no leading zeros)
 void bm_debug_print_dec32(uint8_t uart_num, uint32_t value);
 
+// print a signed 32-bit integer as decimal digits + \r\n (no leading zeros)
+void bm_debug_print_dec32_signed(uint8_t uart_num, int32_t value);
+
 // print a bool as "true" or "false" + \r\n
 void bm_debug_print_bool(uint8_t uart_num, bool value);
 

@@ -122,8 +122,15 @@ int main() {
     } else { print_status_check(&dev, uart_num); } 
 
     //read normal
-    while (!ready) {
+    uint16_t timeout_ms = 500;
+    uint32_t start_time;
+    bm_systick_get_ms(&start_time);
+    while (!ready && !bm_systick_timeout_elapsed(start_time,timeout_ms)) {
         bm_bmp390_data_ready(&dev, &ready);
+    }
+    if (bm_systick_timeout_elapsed(start_time,timeout_ms)) {
+        result = false;
+        bm_uart_write_str(uart_num, "BMP390 read data_ready timeout");
     }
     bmp390_data_t data;
     result = bm_bmp390_read(&dev, &data);
@@ -132,7 +139,7 @@ int main() {
         bm_uart_write_str(uart_num, "BMP390 pressure (Pa)");
         bm_debug_print_dec32(uart_num, (uint32_t)data.pressure_pa);
         bm_uart_write_str(uart_num, "BMP390 temperature (C)");
-        bm_debug_print_dec32(uart_num, (uint32_t)data.temperature_c);
+        bm_debug_print_dec32_signed(uart_num, (int32_t)data.temperature_c);
     } else { print_status_check(&dev, uart_num); } 
 
     //read forced
@@ -142,60 +149,61 @@ int main() {
         bm_uart_write_str(uart_num, "BMP390 pressure (Pa)");
         bm_debug_print_dec32(uart_num, (uint32_t)data.pressure_pa);
         bm_uart_write_str(uart_num, "BMP390 temperature (C)");
-        bm_debug_print_dec32(uart_num, (uint32_t)data.temperature_c);
+        bm_debug_print_dec32_signed(uart_num, (int32_t)data.temperature_c);
     } else { print_status_check(&dev, uart_num); } 
 
     //null guard tests
-    bm_uart_write_str(uart_num, "BMP390 dev null guard tests---------------\r\n");
+    bmp390_t dev4 = dev; //shallow copy
+    bm_uart_write_str(uart_num, "BMP390 null guard tests---------------\r\n");
     //init
     result = bm_bmp390_init(NULL, i2c_num, BMP390_I2C_ADDR_DEFAULT);
-    result |= bm_bmp390_init(&dev, 255, BMP390_I2C_ADDR_DEFAULT);
+    result |= bm_bmp390_init(&dev4, 255, BMP390_I2C_ADDR_DEFAULT);
     bm_debug_print_result(uart_num, !result, "BMP390 init null");
-    if (result) { print_status_check(&dev, uart_num); } 
+    if (result) { print_status_check(&dev4, uart_num); } 
     //configure
-    result = bm_bmp390_configure(NULL, &dev.cfg);
-    result |= bm_bmp390_configure(&dev, NULL);
+    result = bm_bmp390_configure(NULL, &dev4.cfg);
+    result |= bm_bmp390_configure(&dev4, NULL);
     bm_debug_print_result(uart_num, !result, "BMP390 configure null");
-    if (result) { print_status_check(&dev, uart_num); } 
+    if (result) { print_status_check(&dev4, uart_num); } 
     //read
     result = bm_bmp390_read(NULL, &data);
-    result |= bm_bmp390_read(&dev, NULL);
+    result |= bm_bmp390_read(&dev4, NULL);
     bm_debug_print_result(uart_num, !result, "BMP390 read null");
     if (result) {
-        result = bm_bmp390_get_status(&dev, &err, &status);
+        result = bm_bmp390_get_status(&dev4, &err, &status);
         bm_debug_print_result(uart_num, result, "BMP390 get status");
         bm_debug_print_labeled_hex8(uart_num, "BMP390 ERR_REG", err );
         bm_debug_print_labeled_hex8(uart_num, "BMP390 STATUS", status);
     }  
     //read forced
     result = bm_bmp390_read_forced(NULL, &data);
-    result |= bm_bmp390_read_forced(&dev, NULL);
+    result |= bm_bmp390_read_forced(&dev4, NULL);
     bm_debug_print_result(uart_num, !result, "BMP390 read forced null");
-    if (result) { print_status_check(&dev, uart_num); } 
+    if (result) { print_status_check(&dev4, uart_num); } 
     //data ready
     result = bm_bmp390_data_ready(NULL, &ready);
-    result |= bm_bmp390_data_ready(&dev, NULL);
+    result |= bm_bmp390_data_ready(&dev4, NULL);
     bm_debug_print_result(uart_num, !result, "BMP390 data ready null");
-    if (result) { print_status_check(&dev, uart_num); } 
+    if (result) { print_status_check(&dev4, uart_num); } 
     //soft reset
     result = bm_bmp390_soft_reset(NULL);
     bm_debug_print_result(uart_num, !result, "BMP390 soft reset null");
-    if (result) { print_status_check(&dev, uart_num); } 
+    if (result) { print_status_check(&dev4, uart_num); } 
     //read chip id
     result = bm_bmp390_read_chip_id(NULL, &id);
-    result |= bm_bmp390_read_chip_id(&dev, NULL);
+    result |= bm_bmp390_read_chip_id(&dev4, NULL);
     bm_debug_print_result(uart_num, !result, "BMP390 read chip id null");
-    if (result) { print_status_check(&dev, uart_num); } 
+    if (result) { print_status_check(&dev4, uart_num); } 
     //get status
     result = bm_bmp390_get_status(NULL, &err, &status);
-    result |= !bm_bmp390_get_status(&dev, NULL, &status); //should be true
-    result |= !bm_bmp390_get_status(&dev, &err, NULL); //should be true
-    result |= bm_bmp390_get_status(&dev, NULL, NULL);
+    result |= !bm_bmp390_get_status(&dev4, NULL, &status); //should be true
+    result |= !bm_bmp390_get_status(&dev4, &err, NULL); //should be true
+    result |= bm_bmp390_get_status(&dev4, NULL, NULL);
     bm_debug_print_result(uart_num, !result, "BMP390 get status null");
     //default config
     result = bm_bmp390_default_config(NULL);
     bm_debug_print_result(uart_num, !result, "BMP390 default config null");
-    if (result) { print_status_check(&dev, uart_num); }
+    if (result) { print_status_check(&dev4, uart_num); }
 
 
     //init guard tests
@@ -252,8 +260,16 @@ int main() {
     dev3.cfg.mode = BMP390_MODE_FORCED; //nonstandard mode
     result &= bm_bmp390_configure(&dev3, &dev3.cfg);
     result &= bm_bmp390_soft_reset(&dev3);
-    bm_debug_print_result(uart_num, (!result || dev3.cfg.mode == BMP390_MODE_FORCED), "BMP390 soft reset check");
-    if (!result || dev3.cfg.mode == BMP390_MODE_FORCED) { print_status_check(&dev3, uart_num); }
+    //check all settings at default
+    uint8_t pwr_ctrl, osr;
+    bm_i2c_write_read(i2c_num, dev3.addr, BMP390_REG_PWR_CTRL, pwr_ctrl, 1);
+    bm_i2c_write_read(i2c_num, dev3.addr, BMP390_REG_OSR, osr, 1);
+    result &= osr == 0x02; //default from datsheet
+    result &= pwr_ctrl == 0x00; //default from datsheet
+    bm_debug_print_result(uart_num, result, "BMP390 soft reset check");
+    if (!result) { 
+        print_status_check(&dev3, uart_num); 
+    }
 
     //test power of two function on pico, just in case...
     result = power_of_two(0) == 1;

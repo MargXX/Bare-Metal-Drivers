@@ -100,15 +100,11 @@ bool bm_i2c_write(uint8_t i2c_num, uint8_t addr, const uint8_t *buf, size_t len)
     uint32_t total_timeout = I2C_TOTAL_TIMEOUT_CYCLES;
     uint32_t timeout = I2C_TIMEOUT_CYCLES;
     while (bm_i2c_is_busy(i2c_num)) { //no reset here since transaction hasnt started and someone else might be using the bus
-                if (timeout == 0) {
-                    return false;
-                }
-                if (total_timeout == 0) {
-                    return false;
-                }
-                total_timeout--;
-                timeout--;
-            }
+        if (timeout == 0) {return false;}
+        if (total_timeout == 0) {return false;}
+        total_timeout--;
+        timeout--;
+    }
 
     //address phase - generate start condition and send address + set to write mode
     if (!bm_i2c_set_tar_address(i2c_num, addr)) {
@@ -179,11 +175,11 @@ bool bm_i2c_read(uint8_t i2c_num, uint8_t addr, uint8_t *buf, size_t len) {
     uint32_t total_timeout = I2C_TOTAL_TIMEOUT_CYCLES;
     uint32_t timeout = I2C_TIMEOUT_CYCLES;
     while (bm_i2c_is_busy(i2c_num)) { 
-                if (timeout == 0) {return false;}
-                if (total_timeout == 0) {return false;}
-                total_timeout--;
-                timeout--;
-            }
+        if (timeout == 0) {return false;}
+        if (total_timeout == 0) {return false;}
+        total_timeout--;
+        timeout--;
+    }
 
     //address phase - generate start condition and send address 
     if (!bm_i2c_set_tar_address(i2c_num, addr)) { return false; }
@@ -254,11 +250,11 @@ bool bm_i2c_write_read(uint8_t i2c_num, uint8_t addr, uint8_t reg_addr, uint8_t 
     uint32_t total_timeout = I2C_TOTAL_TIMEOUT_CYCLES;
     uint32_t timeout = I2C_TIMEOUT_CYCLES;
     while (bm_i2c_is_busy(i2c_num)) { 
-                if (timeout == 0) {return false;}
-                if (total_timeout == 0) {return false;}
-                total_timeout--;
-                timeout--;
-            }
+        if (timeout == 0) {return false;}
+        if (total_timeout == 0) {return false;}
+        total_timeout--;
+        timeout--;
+    }
 
     //address phase - generate start condition and send address + set to write mode
     if (!bm_i2c_set_tar_address(i2c_num, addr)) {

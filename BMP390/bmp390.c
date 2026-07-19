@@ -23,8 +23,8 @@ static bool read_and_compensate(bmp390_t *dev, bmp390_data_t *out);
 // Returns false if CHIP_ID is wrong or any I2C transaction fails.
 bool bm_bmp390_init(bmp390_t *dev, uint8_t i2c_num, uint8_t dev_addr) {
     //verify inputs
+    if (dev == NULL) { return false; }
     if (!bm_i2c_is_valid(i2c_num)) { return false; }
-    if (!dev) { return false; }
     //set fields for dev
     dev->initialized = false; // set this true when finished
     dev->configured = false; // set this true when finished
@@ -159,6 +159,7 @@ bool bm_bmp390_read_forced(bmp390_t *dev, bmp390_data_t *out) {
     if (out == NULL) { return false; }
     if (dev->initialized == false) { return false; }
     if (dev->configured == false) { return false; }
+    if (dev->cfg.mode != BMP390_MODE_FORCED || dev->cfg.mode != BMP390_MODE_SLEEP) { return false; }
 
     //set power control to forced mode with the current enables
     uint8_t pwr_ctrl = 0;
@@ -210,6 +211,7 @@ bool bm_bmp390_data_ready(bmp390_t *dev, bool *ready_out) {
 // Issue a soft reset (CMD = softreset) and wait for the device to come back.
 bool bm_bmp390_soft_reset(bmp390_t *dev) {
     if (dev == NULL) { return false; }
+    if (!bm_i2c_is_valid(dev->i2c_num)) { return false; }
 
     uint8_t buf[2] = {BMP390_REG_CMD, BMP390_CMD_SOFTRESET};
     //write soft reset
@@ -229,6 +231,8 @@ bool bm_bmp390_soft_reset(bmp390_t *dev) {
         timeout--;
         bm_i2c_write_read(dev->i2c_num, dev->addr, BMP390_REG_STATUS, statusbuf, 1);
     }
+    dev->configured = false; 
+
     return true; //success
 }
 
@@ -237,6 +241,7 @@ bool bm_bmp390_soft_reset(bmp390_t *dev) {
 bool bm_bmp390_read_chip_id(bmp390_t *dev, uint8_t *id_out) {
     if (dev == NULL) { return false; }
     if (id_out == NULL) { return false; }
+    if (!bm_i2c_is_valid(dev->i2c_num)) { return false; }
 
     uint8_t id_arr[1];
     if (!bm_i2c_write_read(dev->i2c_num, dev->addr, BMP390_REG_CHIP_ID, id_arr, 1 )) { return false; }
@@ -249,7 +254,7 @@ bool bm_bmp390_read_chip_id(bmp390_t *dev, uint8_t *id_out) {
 bool bm_bmp390_get_status(bmp390_t *dev, uint8_t *err_out, uint8_t *status_out) {
     if (dev == NULL) { return false; }
     if (!dev->initialized) { return false; }
-    if (err_out == NULL && status_out == NULL) { return false; } //likely user error, but the function itself succeeded since there are no outputs to write to, so return true
+    if (err_out == NULL && status_out == NULL) { return false; } //likely user error, so return false
     if (status_out != NULL && !bm_i2c_write_read(dev->i2c_num, dev->addr, BMP390_REG_STATUS, status_out, 1 )) { return false; }
     if (err_out != NULL && !bm_i2c_write_read(dev->i2c_num, dev->addr, BMP390_REG_ERR_REG, err_out, 1 )) { return false; }
     return true; //success

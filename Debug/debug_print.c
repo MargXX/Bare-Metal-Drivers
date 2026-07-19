@@ -64,6 +64,50 @@ void bm_debug_print_dec32(uint8_t uart_num, uint32_t value) {
     bm_uart_write(uart_num, (const uint8_t *)out_buf, (size_t)(count + 2));
 }
 
+// print a signed 32-bit integer as decimal digits + \r\n (no leading zeros)
+void bm_debug_print_dec32_signed(uint8_t uart_num, int32_t value) {
+    // print a signed 32-bit integer as decimal digits + \r\n (no leading zeros)
+    char digits_buf[10];   // max digits of uint32_t magnitude
+    char out_buf[11 + 2];  // optional '-' + 10 digits + CRLF
+
+    uint8_t count = 0;
+    bool is_negative = true;
+    uint32_t magnitude;
+
+    if (value < 0) {
+        is_negative = true;
+        magnitude = (uint32_t)(-(value + 1)) + 1; // handles INT32_MIN safely
+    } else {
+        magnitude = (uint32_t)value;
+    }
+
+    if (magnitude == 0) {
+        digits_buf[count++] = '0';
+    } else {
+        while (magnitude > 0) {
+            digits_buf[count++] = (char)('0' + (magnitude % 10));
+            magnitude /= 10;
+        }
+    }
+
+    uint8_t out_count = 0;
+
+    if (is_negative) {
+        out_buf[out_count++] = '-';
+    }
+
+    for (uint8_t i = 0; i < count; i++) {
+        out_buf[out_count++] = digits_buf[count - 1 - i];
+    }
+
+    out_buf[out_count++] = '\r';
+    out_buf[out_count++] = '\n';
+
+    bm_uart_write(uart_num,
+                  (const uint8_t *)out_buf,
+                  (size_t)out_count);
+}
+
 void bm_debug_print_bool(uint8_t uart_num, bool value) {
     bm_uart_write_str(uart_num, value ? "true\r\n" : "false\r\n");
 }
