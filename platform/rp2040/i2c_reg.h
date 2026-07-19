@@ -48,6 +48,7 @@ static const i2c_pin_pair i2c_valid_pairs[] = {
 }; 
 
 #define NUM_I2C_PAIRS (sizeof(i2c_valid_pairs) / sizeof(i2c_pin_pair))
+#define NUM_I2C_PERIPHERALS 2
 
 #define I2C0_BASE 0x40044000
 #define I2C1_BASE 0x40048000
