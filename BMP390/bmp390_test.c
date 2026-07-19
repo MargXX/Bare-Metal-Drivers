@@ -16,6 +16,10 @@ static void print_status_check(bmp390_t *dev, uint8_t uart_num) {
     bm_debug_print_labeled_hex8(uart_num, "BMP390 STATUS", status);
 }
 
+//testing this works on the pico
+static float power_of_two(uint16_t pow){
+    return ldexpf(1.0f, pow); // returns 1.0 * 2^pow, handles positive 
+}
 
 
 int main() {
@@ -35,15 +39,17 @@ int main() {
     if (!result) { blink_loop(100); } //very slow blink on init failure
 
     // 3 blinks — signals start of test
-    blink_n_times(3);
+    // blink_n_times(3);
+
 
     //TESTS BELOW
     //---------------------------------------------
+    bm_uart_write_str(uart_num, "\n\n");
 
     bmp390_t dev;
     //init
     result = bm_bmp390_init(&dev, i2c_num, BMP390_I2C_ADDR_DEFAULT );
-    bm_debug_print_result(uart_num, result, "\nBMP390 init");
+    bm_debug_print_result(uart_num, result, "BMP390 init");
 
     // ID check
     uint8_t id;
@@ -93,6 +99,7 @@ int main() {
             if (calib1[i] != calib2[i]) {
                 result = false;
             }
+            // bm_debug_print_hex32(uart_num, (uint32_t)(calib1[i]) );
         }
     } else { print_status_check(&dev, uart_num); } 
     bm_debug_print_result(uart_num, result, "BMP390 calib read consistency");
@@ -139,7 +146,7 @@ int main() {
     } else { print_status_check(&dev, uart_num); } 
 
     //null guard tests
-    bm_uart_write_str(uart_num, "\nBMP390 dev null guard tests\n");
+    bm_uart_write_str(uart_num, "BMP390 dev null guard tests---------------\r\n");
     //init
     result = bm_bmp390_init(NULL, i2c_num, BMP390_I2C_ADDR_DEFAULT);
     result |= bm_bmp390_init(&dev, 255, BMP390_I2C_ADDR_DEFAULT);
@@ -181,8 +188,9 @@ int main() {
     if (result) { print_status_check(&dev, uart_num); } 
     //get status
     result = bm_bmp390_get_status(NULL, &err, &status);
-    result |= bm_bmp390_get_status(&dev, NULL, &status);
-    result |= bm_bmp390_get_status(&dev, &err, NULL);
+    result |= !bm_bmp390_get_status(&dev, NULL, &status); //should be true
+    result |= !bm_bmp390_get_status(&dev, &err, NULL); //should be true
+    result |= bm_bmp390_get_status(&dev, NULL, NULL);
     bm_debug_print_result(uart_num, !result, "BMP390 get status null");
     //default config
     result = bm_bmp390_default_config(NULL);
@@ -191,7 +199,7 @@ int main() {
 
 
     //init guard tests
-    bm_uart_write_str(uart_num, "BMP390 init guard tests\n");
+    bm_uart_write_str(uart_num, "BMP390 init guard tests---------------\r\n");
     bmp390_t dev2 = dev; //shallow copy dev to dev2 to test init guard
     dev2.initialized = false; //force unconfigured state
     dev2.configured = true; //force configured state to isolate init guard
@@ -219,7 +227,7 @@ int main() {
     if (result) { print_status_check(&dev, uart_num); } 
 
     //configure guard tests
-    bm_uart_write_str(uart_num, "BMP390 configure guard tests\n");
+    bm_uart_write_str(uart_num, "BMP390 configure guard tests---------------\r\n");
     dev2.configured = false; //force unconfigured state
     dev2.initialized = true; //force initialized state to isolate configure guard
     //just the reads and data ready need configure guard
@@ -237,7 +245,27 @@ int main() {
     if (result) { print_status_check(&dev, uart_num); }
 
 
-    bm_uart_write_str(uart_num, "BMP390 test complete. Blinking LED to signal end of test. \n");
+    
+    //soft reset test
+    bmp390_t dev3;
+    result = bm_bmp390_init(&dev3, i2c_num, BMP390_I2C_ADDR_DEFAULT);
+    dev3.cfg.mode = BMP390_MODE_FORCED; //nonstandard mode
+    result &= bm_bmp390_configure(&dev3, &dev3.cfg);
+    result &= bm_bmp390_soft_reset(&dev3);
+    bm_debug_print_result(uart_num, (!result || dev3.cfg.mode == BMP390_MODE_FORCED), "BMP390 soft reset check");
+    if (!result || dev3.cfg.mode == BMP390_MODE_FORCED) { print_status_check(&dev3, uart_num); }
+
+    //test power of two function on pico, just in case...
+    result = power_of_two(0) == 1;
+    result &= power_of_two(1) == 2;
+    result &= power_of_two(2) == 4;
+    result &= power_of_two(3) == 8;
+    result &= power_of_two(4) == 16;
+    result &= power_of_two(5) == 32;
+    bm_debug_print_result(uart_num,result,"BMP390 Power of Two test");
+    //TODO: finish writing power of 2 test for pico
+
+    bm_uart_write_str(uart_num, "BMP390 test complete. Blinking LED to signal end of test. \r\n");
 
 
     blink_loop(1000);// everything done, blink to signal end of test

@@ -122,11 +122,7 @@
 
 
 
-// Calibration / trimming coefficients (DS §3.11.1, Table 24)        
-//                                                                   
-// Read this whole block in one burst at init, then parse into the   
-// quantized float coefficien
-// ------------------------------------------------------------------
+// Calibration / trimming coefficients (DS §3.11.1, Table 24)   
 
 #define BMP390_REG_CALIB_DATA     0x31  // start address of the calib block (DS Table 24)
 #define BMP390_CALIB_DATA_LEN     0x15  // number of bytes to burst-read
