@@ -30,6 +30,11 @@ Bare-Metal-Drivers/
 ├── pico_sdk_import.cmake
 ├── LICENSE
 ├── README.md
+├── Debug
+│   ├── debug_blink.c
+│   ├── debug_blink.h
+│   ├── debug_print.c
+│   └── debug_print.h
 ├── platform/
 │   └── rp2040/
 │       ├── gpio_platform.h
@@ -59,8 +64,8 @@ Bare-Metal-Drivers/
     ├── bmp390.h
     ├── bmp390_reg.h
     ├── bmp390_platform.h
-    ├── bmp390.c            (logic complete, build/verify pending)
-    └── bmp390_test.c       (in progress)
+    ├── bmp390.c            
+    └── bmp390_test.c       
 ```
 
 Each driver lives in its own folder with a portable public API header and implementation file. Hardware-specific register maps and constants live under `platform/rp2040/` and are included only by the driver’s own `.c` file. Test files contain `main()` and produce a standalone flashable binary.
