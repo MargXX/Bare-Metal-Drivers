@@ -1,5 +1,7 @@
 # Bare-Metal Drivers
 
+![Build](https://github.com/MargXX/Bare-Metal-Drivers/actions/workflows/build.yml/badge.svg)
+
 A from-scratch bare-metal driver library in C for the Raspberry Pi RP2040. No vendor HAL — all peripheral configuration is written directly against the RP2040 datasheet.
 
 This driver stack is the foundation layer of a larger flight computer project: a custom PCB with a full application layer, all built from scratch. The drivers are written to be clean and self-contained, with hardware-specific register details isolated from the public API.
