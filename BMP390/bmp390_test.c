@@ -16,7 +16,7 @@ static void print_status_check(bmp390_t *dev, uint8_t uart_num) {
     bm_debug_print_labeled_hex8(uart_num, "BMP390 STATUS", status);
 }
 
-//testing this works on the pico
+//testing this works on the pico, this feels very silly, will make more proffessional test for this soon
 static float power_of_two(uint16_t pow){
     return ldexpf(1.0f, pow); // returns 1.0 * 2^pow, handles positive 
 }
@@ -274,10 +274,9 @@ int main() {
     //test power of two function on pico, just in case...
     result = power_of_two(0) == 1;
     result &= power_of_two(1) == 2;
-    result &= power_of_two(2) == 4;
     result &= power_of_two(3) == 8;
-    result &= power_of_two(4) == 16;
     result &= power_of_two(5) == 32;
+    result &= power_of_two(8) == 256;
     bm_debug_print_result(uart_num,result,"BMP390 Power of Two test");
 
     bm_uart_write_str(uart_num, "BMP390 test complete. Blinking LED to signal end of test. \r\n");
