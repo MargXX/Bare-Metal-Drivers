@@ -16,7 +16,7 @@ static void print_status_check(bmp390_t *dev, uint8_t uart_num) {
     bm_debug_print_labeled_hex8(uart_num, "BMP390 STATUS", status);
 }
 
-//testing this works on the pico, this feels very silly, will make more proffessional test for this soon
+//testing this works on the pico, this feels very silly
 static float power_of_two(uint16_t pow){
     return ldexpf(1.0f, pow); // returns 1.0 * 2^pow, handles positive 
 }
