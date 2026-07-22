@@ -1,7 +1,8 @@
-name: Build
+name: CI
 on: push
 jobs:
   build:
+    name: RP2040 Build
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
@@ -14,6 +15,17 @@ jobs:
         run: echo "PICO_SDK_PATH=${{ github.workspace }}/pico-sdk" >> "$GITHUB_ENV"
       - name: Configure
         run: cmake -B build
-
       - name: Build
         run: cmake --build build
+  test:
+    name: Host Unit Tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S tests -B tests/build
+      - name: Build
+        run: cmake --build tests/build
+      - name: Run Tests
+        run: ctest --test-dir tests/build --output-on-failure
