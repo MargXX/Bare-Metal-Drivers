@@ -210,6 +210,127 @@ void test_compensate_pressure_total(void) {
     float partial_data4 = 2 * 2 * (29 + 31 + 2 * 37);
     float expected = partial_out1 + partial_out2 + partial_data4;
     TEST_ASSERT_FLOAT_WITHIN(0.01, expected , compensate_pressure(&calib_data, uncomp_press));
+
+
+    //testing negatives
+    calib_data.par_t1   = 1087;
+    calib_data.par_t2   = 1091;
+    calib_data.par_t3   = 1093;
+    //no other changes
+    TEST_ASSERT_FLOAT_WITHIN(0.01, expected , compensate_pressure(&calib_data, uncomp_press));
+
+    //whole equation
+    calib_data = (bmp390_calib_t){
+        .par_t1   = 0,
+        .par_t2   = 0,
+        .par_t3   = 0,
+        .par_p1   = -3,
+        .par_p2   = -5,
+        .par_p3   = -7,
+        .par_p4   = -11,
+        .par_p5   = 13,
+        .par_p6   = 17,
+        .par_p7   = -19,
+        .par_p8   = -23,
+        .par_p9   = -29,
+        .par_p10  = -31,
+        .par_p11  = -37,
+        .t_lin    = 1,
+    };
+    uncomp_press = 2;
+    partial_out1 = 13 + 17 - 19 - 23;
+    partial_out2 = 2 * (-3 - 5 - 7 - 11);
+    partial_data4 = 2 * 2 * (-29 - 31 + 2 * -37);
+    expected = partial_out1 + partial_out2 + partial_data4;
+    TEST_ASSERT_FLOAT_WITHIN(0.01, expected , compensate_pressure(&calib_data, uncomp_press));
+    
+}
+
+
+//all together
+void test_compensate_temperature_total(void) {
+    //whole equation
+    calib_data = (bmp390_calib_t){
+        .par_t1   = 3,
+        .par_t2   = 5,
+        .par_t3   = 7,
+        .par_p1   = 11,
+        .par_p2   = 13,
+        .par_p3   = 17,
+        .par_p4   = 19,
+        .par_p5   = 23,
+        .par_p6   = 29,
+        .par_p7   = 31,
+        .par_p8   = 37,
+        .par_p9   = 41,
+        .par_p10  = 43,
+        .par_p11  = 47,
+        .t_lin    = 53,
+    };
+    uint32_t uncomp_temp = 2;
+    float partial_data1 =  2 - 3;
+    float partial_data2 = partial_data1 * 5;
+    float expected = partial_data2 + partial_data1 * partial_data1 * 7;
+    TEST_ASSERT_FLOAT_WITHIN(0.01, expected , compensate_temperature(&calib_data, uncomp_temp));
+    TEST_ASSERT_FLOAT_WITHIN(0.01, expected , calib_data.t_lin);
+
+    //test nothing else matters
+    calib_data = (bmp390_calib_t){
+        .par_t1   = 3,
+        .par_t2   = 5,
+        .par_t3   = 7,
+        .par_p1   = 0,
+        .par_p2   = 0,
+        .par_p3   = 0,
+        .par_p4   = 0,
+        .par_p5   = 0,
+        .par_p6   = 0,
+        .par_p7   = 0,
+        .par_p8   = 0,
+        .par_p9   = 0,
+        .par_p10  = 0,
+        .par_p11  = 0,
+        .t_lin    = 0,
+    };
+    uncomp_temp = 2;
+    partial_data1 =  2 - 3;
+    partial_data2 = partial_data1 * 5;
+    expected = partial_data2 + partial_data1 * partial_data1 * 7;
+    TEST_ASSERT_FLOAT_WITHIN(0.01, expected , compensate_temperature(&calib_data, uncomp_temp));
+    TEST_ASSERT_FLOAT_WITHIN(0.01, expected , calib_data.t_lin);
+
+    //t1
+    calib_data.par_t1   =-3;
+    calib_data.par_t2   = 0;
+    calib_data.par_t3   = 1;
+    uncomp_temp = 0;
+    partial_data1 =  3;
+    partial_data2 = partial_data1 * 0;
+    expected = partial_data2 + partial_data1 * partial_data1 * 1;
+    TEST_ASSERT_FLOAT_WITHIN(0.01, expected , compensate_temperature(&calib_data, uncomp_temp));
+    TEST_ASSERT_FLOAT_WITHIN(0.01, expected , calib_data.t_lin);
+
+    //t2
+    calib_data.par_t1   = 0;
+    calib_data.par_t2   = 5;
+    calib_data.par_t3   = 0;
+    uncomp_temp = 1;
+    partial_data1 =  1;
+    partial_data2 = partial_data1 * 5;
+    expected = partial_data2 + partial_data1 * partial_data1 * 0;
+    TEST_ASSERT_FLOAT_WITHIN(0.01, expected , compensate_temperature(&calib_data, uncomp_temp));
+    TEST_ASSERT_FLOAT_WITHIN(0.01, expected , calib_data.t_lin);
+
+    //t3
+    calib_data.par_t1   = 0;
+    calib_data.par_t2   = 1;
+    calib_data.par_t3   = 7;
+    uncomp_temp = 1;
+    partial_data1 =  1 - 0;
+    partial_data2 = partial_data1 * 1;
+    expected = partial_data2 + partial_data1 * partial_data1 * 7;
+    TEST_ASSERT_FLOAT_WITHIN(0.01, expected , compensate_temperature(&calib_data, uncomp_temp));
+    TEST_ASSERT_FLOAT_WITHIN(0.01, expected , calib_data.t_lin);
 }
 
 
@@ -221,5 +342,6 @@ int main(void) {
     RUN_TEST(test_compensate_pressure_partial_out2);
     RUN_TEST(test_compensate_pressure_partial_data4);
     RUN_TEST(test_compensate_pressure_total);
+    RUN_TEST(test_compensate_temperature_total);
     return UNITY_END();
 }
