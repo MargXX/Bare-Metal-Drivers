@@ -11,7 +11,8 @@ set(BM_WARNING_FLAGS -Wall -Wextra -Werror)
 
 add_executable(bmp390_test_host
     bmp390_test_host.c
-    stubs.c
+    i2c_fake.c
+    systick_fake.c
     unity/unity.c
 )
 
