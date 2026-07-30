@@ -3,12 +3,19 @@
 
 
 //command for initial compilation
-// gcc -Wall -Wextra -std=c11 -Iplatform/rp2040 tests/bmp390_test_host.c tests/unity/unity.c tests/stubs.c -o tests/bmp390_test_host -lm
+// gcc -Wall -Wextra -std=c11 -Iplatform/rp2040 tests/bmp390_test_host.c tests/unity/unity.c tests/bmp390_i2c_fake.c tests/systick_fake.c -o tests/build/bmp390_test_host -lm
 
 //-Iplatform/rp2040 — adds that directory to the include search path, which is what let i2c_platform.h resolve to rp2040 for now
 
+
+#define REG_COUNT 256
+extern uint8_t regs[];
+extern uint32_t clock_ms;
+
 //making this global for convienience
 static bmp390_calib_t calib_data;
+static bmp390_t dev;
+static bool completed;
 
 void setUp(void) {
     // set stuff up here
@@ -29,16 +36,27 @@ void setUp(void) {
         .par_p11  = 0,
         .t_lin    = 0,
     };
+    
+    for (size_t i = 0; i<REG_COUNT; i++) {
+        regs[i] = 0;
+    }
+    
+
+    completed = false;
+
+    clock_ms = 0;
 }
 
 void tearDown(void) {
     // clean stuff up here
 }
 
-void test_function_should_doBlahAndBlah(void) {
-    //test stuff
-    TEST_IGNORE();
-}
+//template so I dont forget
+//TODO: clean this up after testing is set up
+// void test_function_should_doBlahAndBlah(void) {
+//     //test stuff
+//     TEST_IGNORE();
+// }
 
 void test_power_of_two_exact(void) {
     //static float power_of_two(uint16_t pow);
@@ -246,7 +264,6 @@ void test_compensate_pressure_total(void) {
     
 }
 
-
 //all together
 void test_compensate_temperature_total(void) {
     //whole equation
@@ -333,6 +350,155 @@ void test_compensate_temperature_total(void) {
     TEST_ASSERT_FLOAT_WITHIN(0.01, expected , calib_data.t_lin);
 }
 
+//mainly checking i2c_fake proper connection
+void test_check_ID_uses_i2c(void) {
+    uint8_t id = 0xFF;
+    dev.addr = BMP390_I2C_ADDR_DEFAULT;
+    dev.i2c_num = 0;
+
+    //set ID reg to correct
+    regs[BMP390_REG_CHIP_ID] = BMP390_CHIP_ID_VALUE;
+    completed = bm_bmp390_read_chip_id(&dev,&id);
+    
+    TEST_ASSERT_EQUAL_INT32(BMP390_CHIP_ID_VALUE, id);
+    TEST_ASSERT(completed);
+
+    //set ID reg to incorrect
+    regs[BMP390_REG_CHIP_ID] = 0x67; //funny number
+    completed = bm_bmp390_read_chip_id(&dev,&id);
+    
+    TEST_ASSERT_EQUAL_INT32(0x67, id);
+    TEST_ASSERT(completed);
+}
+
+void test_calibration_parse_syntheic(void) {
+    //set up registers with real calib data
+    uint8_t syn_dump[] = {//spacing for different pars
+        0xF1, 0x01, 
+        0xF2, 0x02, 
+        0xF3,       //signed
+        0x04, 0xF4, //signed
+        0x05, 0xF5, //signed
+        0xF6,       //signed
+        0xF7,       //signed
+        0x08, 0xF8, 
+        0x09, 0xF9, 
+        0xFA,       //signed
+        0xFB,       //signed
+        0x0C, 0xFC, //signed
+        0xFD,       //signed
+        0xFE,       //signed
+    }; //have signed > 0x80 to confirm negatives
+    //write fake to registers
+    for (uint8_t i = 0; i<BMP390_CALIB_DATA_LEN; i++) {
+        regs[BMP390_REG_CALIB_DATA + i] = syn_dump[i];
+    } 
+    //calculated expected answers from datasheet
+    bmp390_calib_t c_exp = {
+        .par_t1   =(uint16_t)(syn_dump[0] | ( syn_dump[1] << 8 )) * power_of_two(8),   
+        .par_t2   =(uint16_t)(syn_dump[2] | ( syn_dump[3] << 8 )) / power_of_two(30),  
+        .par_t3   = (int8_t)(syn_dump[4]) / power_of_two(48),  
+        .par_p1   =((int16_t)(syn_dump[5] | ( syn_dump[6] << 8 ) ) - power_of_two(14)) / power_of_two(20),   
+        .par_p2   =((int16_t)(syn_dump[7] | ( syn_dump[8] << 8 ) ) - power_of_two(14)) / power_of_two(29),   
+        .par_p3   = (int8_t)(syn_dump[9]) / power_of_two(32),  
+        .par_p4   = (int8_t)(syn_dump[10]) / power_of_two(37),  
+        .par_p5   =(uint16_t)(syn_dump[11] | ( syn_dump[12] << 8 ) ) * power_of_two(3),   
+        .par_p6   =(uint16_t)(syn_dump[13] | ( syn_dump[14] << 8 ) ) / power_of_two(6),   
+        .par_p7   = (int8_t)(syn_dump[15]) / power_of_two(8),   
+        .par_p8   = (int8_t)(syn_dump[16]) / power_of_two(15),  
+        .par_p9   = (int16_t)(syn_dump[17] | ( syn_dump[18] << 8 ))/ power_of_two(48),  
+        .par_p10  = (int8_t)(syn_dump[19])  / power_of_two(48),  
+        .par_p11  = (int8_t)(syn_dump[20])  / power_of_two(65),  
+        .t_lin = 0.0f, //doesnt matter
+    };
+
+    //parse performed by init
+    regs[BMP390_REG_CHIP_ID] = BMP390_CHIP_ID_VALUE;
+    completed = bm_bmp390_init(&dev, 0, BMP390_I2C_ADDR_DEFAULT);
+    TEST_ASSERT(completed);
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_t1 ) * 0.01f + 1e-9f, c_exp.par_t1 , dev.calib.par_t1 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_t2 ) * 0.01f + 1e-9f, c_exp.par_t2 , dev.calib.par_t2 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_t3 ) * 0.01f + 1e-9f, c_exp.par_t3 , dev.calib.par_t3 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_p1 ) * 0.01f + 1e-9f, c_exp.par_p1 , dev.calib.par_p1 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_p2 ) * 0.01f + 1e-9f, c_exp.par_p2 , dev.calib.par_p2 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_p3 ) * 0.01f + 1e-9f, c_exp.par_p3 , dev.calib.par_p3 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_p4 ) * 0.01f + 1e-9f, c_exp.par_p4 , dev.calib.par_p4 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_p5 ) * 0.01f + 1e-9f, c_exp.par_p5 , dev.calib.par_p5 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_p6 ) * 0.01f + 1e-9f, c_exp.par_p6 , dev.calib.par_p6 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_p7 ) * 0.01f + 1e-9f, c_exp.par_p7 , dev.calib.par_p7 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_p8 ) * 0.01f + 1e-9f, c_exp.par_p8 , dev.calib.par_p8 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_p9 ) * 0.01f + 1e-9f, c_exp.par_p9 , dev.calib.par_p9 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_p10) * 0.01f + 1e-9f, c_exp.par_p10, dev.calib.par_p10);
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_p11) * 0.01f + 1e-9f, c_exp.par_p11, dev.calib.par_p11);
+    
+
+}
+
+
+//plausibility check
+void test_calibration_parse_real_capture(void) {
+    //set up registers with real calib data
+    uint8_t real_dump[] = {//spacing for different pars
+        0x20, 0x6D, 
+        0xA7, 0x4D, 
+        0xF9, 
+        0xCD, 0x1B, 
+        0x4D, 0x16, 
+        0x06, 
+        0x01, 
+        0x3D, 0x4C, 
+        0x5A, 0x5C, 
+        0x03, 
+        0xFA, 
+        0xAA, 0x0F, 
+        0x05, 
+        0xF5,
+    };
+    //write to fake registers
+    for (uint8_t i = 0; i<BMP390_CALIB_DATA_LEN; i++) {
+        regs[BMP390_REG_CALIB_DATA + i] = real_dump[i];
+    } 
+    
+    
+    //calculated expected answers from datasheet
+    bmp390_calib_t c_exp = {
+        .par_t1   =(uint16_t)(real_dump[0] | ( real_dump[1] << 8 )) * power_of_two(8),   
+        .par_t2   =(uint16_t)(real_dump[2] | ( real_dump[3] << 8 )) / power_of_two(30),  
+        .par_t3   = (int8_t)(real_dump[4]) / power_of_two(48),  
+        .par_p1   =((int16_t)(real_dump[5] | ( real_dump[6] << 8 ) ) - power_of_two(14)) / power_of_two(20),   
+        .par_p2   =((int16_t)(real_dump[7] | ( real_dump[8] << 8 ) ) - power_of_two(14)) / power_of_two(29),   
+        .par_p3   = (int8_t)(real_dump[9]) / power_of_two(32),  
+        .par_p4   = (int8_t)(real_dump[10]) / power_of_two(37),  
+        .par_p5   =(uint16_t)(real_dump[11] | ( real_dump[12] << 8 ) ) * power_of_two(3),   
+        .par_p6   =(uint16_t)(real_dump[13] | ( real_dump[14] << 8 ) ) / power_of_two(6),   
+        .par_p7   = (int8_t)(real_dump[15]) / power_of_two(8),   
+        .par_p8   = (int8_t)(real_dump[16]) / power_of_two(15),  
+        .par_p9   = (int16_t)(real_dump[17] | ( real_dump[18] << 8 ))/ power_of_two(48),  
+        .par_p10  = (int8_t)(real_dump[19])  / power_of_two(48),  
+        .par_p11  = (int8_t)(real_dump[20])  / power_of_two(65),  
+        .t_lin = 0.0f, //doesnt matter
+    };
+
+    //parse performed by init
+    regs[BMP390_REG_CHIP_ID] = BMP390_CHIP_ID_VALUE;
+    completed = bm_bmp390_init(&dev, 0, BMP390_I2C_ADDR_DEFAULT);
+    TEST_ASSERT(completed);
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_t1 ) * 0.01f + 1e-9f, c_exp.par_t1 , dev.calib.par_t1 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_t2 ) * 0.01f + 1e-9f, c_exp.par_t2 , dev.calib.par_t2 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_t3 ) * 0.01f + 1e-9f, c_exp.par_t3 , dev.calib.par_t3 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_p1 ) * 0.01f + 1e-9f, c_exp.par_p1 , dev.calib.par_p1 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_p2 ) * 0.01f + 1e-9f, c_exp.par_p2 , dev.calib.par_p2 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_p3 ) * 0.01f + 1e-9f, c_exp.par_p3 , dev.calib.par_p3 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_p4 ) * 0.01f + 1e-9f, c_exp.par_p4 , dev.calib.par_p4 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_p5 ) * 0.01f + 1e-9f, c_exp.par_p5 , dev.calib.par_p5 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_p6 ) * 0.01f + 1e-9f, c_exp.par_p6 , dev.calib.par_p6 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_p7 ) * 0.01f + 1e-9f, c_exp.par_p7 , dev.calib.par_p7 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_p8 ) * 0.01f + 1e-9f, c_exp.par_p8 , dev.calib.par_p8 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_p9 ) * 0.01f + 1e-9f, c_exp.par_p9 , dev.calib.par_p9 );
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_p10) * 0.01f + 1e-9f, c_exp.par_p10, dev.calib.par_p10);
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_p11) * 0.01f + 1e-9f, c_exp.par_p11, dev.calib.par_p11);
+
+}
 
 // not needed when using generate_test_runner.rb
 int main(void) {
@@ -343,5 +509,8 @@ int main(void) {
     RUN_TEST(test_compensate_pressure_partial_data4);
     RUN_TEST(test_compensate_pressure_total);
     RUN_TEST(test_compensate_temperature_total);
+    RUN_TEST(test_check_ID_uses_i2c);
+    RUN_TEST(test_calibration_parse_syntheic);
+    RUN_TEST(test_calibration_parse_real_capture);
     return UNITY_END();
 }
