@@ -77,6 +77,8 @@ bool bm_bmp390_configure(bmp390_t *dev, const bmp390_config_t *cfg) {
     if (dev->initialized == false) { return false; }
     uint8_t buf[2];
 
+    dev->configured = false; //if interupted mid way, not marked as configures
+
     //write OSR
     uint8_t osr = 0;
     osr |= ((cfg->osr_p << BMP390_OSR_OSR_P_Pos) & BMP390_OSR_OSR_P_Msk);
