@@ -10,6 +10,7 @@
 
 #define REG_COUNT 256
 extern uint8_t regs[];
+extern uint8_t fail_after_n_calls;
 extern uint32_t clock_ms;
 
 //making this global for convienience
@@ -47,6 +48,8 @@ void setUp(void) {
     completed = false;
 
     clock_ms = 0;
+
+    fail_after_n_calls = 0xFF;
 }
 
 void tearDown(void) {
@@ -555,6 +558,7 @@ void test_read_and_compensate_calculations(void) {
 }
 
 void test_read_and_compensate_guards(void) {
+    dev.addr = BMP390_I2C_ADDR_DEFAULT;
     bmp390_data_t data_out;
     completed = read_and_compensate(NULL, &data_out);
     dev.initialized = true;
@@ -566,8 +570,28 @@ void test_read_and_compensate_guards(void) {
     dev.initialized = true;
     dev.configured = false;
     completed |= read_and_compensate(&dev, &data_out);
-
+    dev.addr = 0;
+    dev.initialized = true;
+    dev.configured = true;
+    completed |= read_and_compensate(&dev, &data_out);
     TEST_ASSERT(!completed);
+}
+
+void test_read_and_compensate_NAK(void) {
+    dev.calib = calib_data;
+    dev.addr = BMP390_I2C_ADDR_DEFAULT;
+    dev.initialized = true;
+    dev.configured = true;
+    bmp390_data_t data_out;
+
+
+    fail_after_n_calls = 0;
+    completed = read_and_compensate(&dev, &data_out);
+    TEST_ASSERT(!completed);
+
+    fail_after_n_calls = 0xFF;
+    completed = read_and_compensate(&dev, &data_out);
+    TEST_ASSERT(completed);
 }
 
 // not needed when using generate_test_runner.rb
@@ -584,5 +608,6 @@ int main(void) {
     RUN_TEST(test_calibration_parse_real_capture);
     RUN_TEST(test_read_and_compensate_calculations);
     RUN_TEST(test_read_and_compensate_guards);
+    RUN_TEST(test_read_and_compensate_NAK);
     return UNITY_END();
 }
