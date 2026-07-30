@@ -12,6 +12,7 @@
 
 #define REG_COUNT 256
 
+extern uint32_t clock_ms;
 uint8_t regs[REG_COUNT];
 uint8_t fail_after_n_calls; // fail when 0
 
@@ -24,6 +25,7 @@ bool bm_i2c_is_valid(uint8_t i2c_num){
 
 bool bm_i2c_write(uint8_t i2c_num, uint8_t addr, const uint8_t *buf, size_t len){
     (void)i2c_num;
+    clock_ms++;
     if (addr != BMP390_I2C_ADDR_DEFAULT) { return false; }
     if (len == 0) { return true; }
     if (buf[0] + len > REG_COUNT) { return false; }
@@ -46,6 +48,7 @@ bool bm_i2c_write(uint8_t i2c_num, uint8_t addr, const uint8_t *buf, size_t len)
 //no edits to regs since this is effectively a read function
 bool bm_i2c_write_read(uint8_t i2c_num, uint8_t addr, uint8_t reg_addr, uint8_t *buf, size_t len) {
     (void)i2c_num;
+    clock_ms++;
     if (addr != BMP390_I2C_ADDR_DEFAULT) { return false; }
     if (reg_addr + len > REG_COUNT) { return false; }
     if (fail_after_n_calls == 0) {
