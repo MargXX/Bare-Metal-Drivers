@@ -11,7 +11,7 @@ set(BM_WARNING_FLAGS -Wall -Wextra -Werror)
 
 add_executable(bmp390_test_host
     bmp390_test_host.c
-    i2c_fake.c
+    bmp390_i2c_fake.c
     systick_fake.c
     unity/unity.c
 )
@@ -26,6 +26,8 @@ target_link_libraries(bmp390_test_host
     PRIVATE m
 )
 
+enable_testing()
+
 add_test(NAME tier1_bmp390 COMMAND bmp390_test_host)
 
-enable_testing()
+
