@@ -36,11 +36,13 @@ void setUp(void) {
         .par_p11  = 0,
         .t_lin    = 0,
     };
+
+    dev = (bmp390_t){0};
     
     for (size_t i = 0; i<REG_COUNT; i++) {
         regs[i] = 0;
     }
-    
+    regs[BMP390_REG_CHIP_ID] = BMP390_CHIP_ID_VALUE;
 
     completed = false;
 
@@ -357,7 +359,7 @@ void test_check_ID_uses_i2c(void) {
     dev.i2c_num = 0;
 
     //set ID reg to correct
-    regs[BMP390_REG_CHIP_ID] = BMP390_CHIP_ID_VALUE;
+    // regs[BMP390_REG_CHIP_ID] = BMP390_CHIP_ID_VALUE; //now in setup
     completed = bm_bmp390_read_chip_id(&dev,&id);
     
     TEST_ASSERT_EQUAL_INT32(BMP390_CHIP_ID_VALUE, id);
@@ -413,7 +415,7 @@ void test_calibration_parse_syntheic(void) {
     };
 
     //parse performed by init
-    regs[BMP390_REG_CHIP_ID] = BMP390_CHIP_ID_VALUE;
+    
     completed = bm_bmp390_init(&dev, 0, BMP390_I2C_ADDR_DEFAULT);
     TEST_ASSERT(completed);
     TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_t1 ) * 0.01f + 1e-9f, c_exp.par_t1 , dev.calib.par_t1 );
@@ -435,7 +437,7 @@ void test_calibration_parse_syntheic(void) {
 }
 
 
-//plausibility check
+// second precision fixture, real NVM capture
 void test_calibration_parse_real_capture(void) {
     //set up registers with real calib data
     uint8_t real_dump[] = {//spacing for different pars
@@ -480,7 +482,6 @@ void test_calibration_parse_real_capture(void) {
     };
 
     //parse performed by init
-    regs[BMP390_REG_CHIP_ID] = BMP390_CHIP_ID_VALUE;
     completed = bm_bmp390_init(&dev, 0, BMP390_I2C_ADDR_DEFAULT);
     TEST_ASSERT(completed);
     TEST_ASSERT_FLOAT_WITHIN(fabsf(c_exp.par_t1 ) * 0.01f + 1e-9f, c_exp.par_t1 , dev.calib.par_t1 );
@@ -500,6 +501,75 @@ void test_calibration_parse_real_capture(void) {
 
 }
 
+void test_read_and_compensate_calculations(void) {
+    
+    calib_data = (bmp390_calib_t){
+        .par_t1   = 3,
+        .par_t2   = 5,
+        .par_t3   = 7,
+        .par_p1   = 11,
+        .par_p2   = 13,
+        .par_p3   = 17,
+        .par_p4   = 19,
+        .par_p5   = 23,
+        .par_p6   = 29,
+        .par_p7   = 31,
+        .par_p8   = 37,
+        .par_p9   = 41,
+        .par_p10  = 43,
+        .par_p11  = 47,
+        .t_lin    = 53,
+    };
+    uint8_t press_temp_data[] = {
+        //press first
+        0x01, 0x81, 0xF1,
+        //temp second
+        0x02, 0x82, 0xF2,
+    };
+    for (uint8_t i = 0; i < BMP390_DATA_LEN; i++) {
+        regs[BMP390_REG_DATA_0 + i] = press_temp_data[i];
+    }
+    //actual results
+    dev.calib = calib_data;
+    dev.addr = BMP390_I2C_ADDR_DEFAULT;
+    dev.initialized = true;
+    dev.configured = true;
+    bmp390_data_t data_out;
+    completed = read_and_compensate(&dev, &data_out);
+
+    //expected answers
+    uint32_t press_raw_exp = 
+        (uint32_t)  press_temp_data[0] +   
+                    (press_temp_data[1] << 8) + 
+                    (press_temp_data[2] << 16);
+    uint32_t temp_raw_exp = 
+        (uint32_t)  press_temp_data[3] +   
+                    (press_temp_data[4] << 8) + 
+                    (press_temp_data[5] << 16);
+    float exp_temp = compensate_temperature(&calib_data, temp_raw_exp);
+    float exp_pres = compensate_pressure(&calib_data, press_raw_exp);
+
+    TEST_ASSERT(completed);
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(exp_temp) * 0.01f + 1e-9f, exp_temp, data_out.temperature_c);
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(exp_pres) * 0.01f + 1e-9f, exp_pres, data_out.pressure_pa);
+}
+
+void test_read_and_compensate_guards(void) {
+    bmp390_data_t data_out;
+    completed = read_and_compensate(NULL, &data_out);
+    dev.initialized = true;
+    dev.configured = true;
+    completed |= read_and_compensate(&dev, NULL);
+    dev.initialized = false;
+    dev.configured = true;
+    completed |= read_and_compensate(&dev, &data_out);
+    dev.initialized = true;
+    dev.configured = false;
+    completed |= read_and_compensate(&dev, &data_out);
+
+    TEST_ASSERT(!completed);
+}
+
 // not needed when using generate_test_runner.rb
 int main(void) {
     UNITY_BEGIN();
@@ -512,5 +582,7 @@ int main(void) {
     RUN_TEST(test_check_ID_uses_i2c);
     RUN_TEST(test_calibration_parse_syntheic);
     RUN_TEST(test_calibration_parse_real_capture);
+    RUN_TEST(test_read_and_compensate_calculations);
+    RUN_TEST(test_read_and_compensate_guards);
     return UNITY_END();
 }
