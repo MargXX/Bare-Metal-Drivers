@@ -17,8 +17,8 @@ This driver stack is the foundation layer of a larger flight computer project: a
 |UART            |Complete   |Verified on hardware. TX confirmed via logic analyzer and serial monitor.                    |
 |I2C             |Complete   |All transaction functions verified on hardware. First sensor read (BMP390 CHIP_ID) confirmed.|
 |BMP390 (device) |Complete   |Verified on hardware: init, configure, soft reset, data-ready, forced and normal reads, float compensation. Ambient readings 101,150 Pa and 23 °C. Full host-side unit test coverage.|
-|LSM9DS1 (device)|Planned    |Depends on I2C                                                                               |
-|SPI             |Optional   |Needed if onboard flash logging is added                                                     |
+|LSM9DS1 (device)|Optional    |Depends on I2C                                                                               |
+|SPI             |Planned   |Needed if onboard flash logging is added                                                     |
 |W25Q128 (device)|Optional   |Depends on SPI                                                                               |
 |STM32 port      |Stretch    |Low priority follow-on                                                                       |
 

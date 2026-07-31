@@ -156,6 +156,7 @@ typedef struct {
 // Does NOT start measurements — call bm_bmp390_configure afterward.
 // The I2C peripheral must already be initialized (bm_i2c_init) by the caller.
 // Returns false if CHIP_ID is wrong or any I2C transaction fails.
+// does not populate dev.cfg, must call bm_bmp390_configure before reading
 bool bm_bmp390_init(bmp390_t *dev, uint8_t i2c_num, uint8_t dev_addr);
 
 // Apply a configuration (enables, mode, oversampling, ODR, IIR filter).
