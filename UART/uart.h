@@ -22,7 +22,6 @@
 #include <stdbool.h>
 #include "../GPIO/gpio.h"
 #include "../SysTick/systick.h"
-#include "uart_platform.h"
 
 // returns false on error, true on success
 
