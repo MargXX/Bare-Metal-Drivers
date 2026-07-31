@@ -217,13 +217,13 @@ bool bm_bmp390_soft_reset(bmp390_t *dev) {
 
     uint8_t buf[2] = {BMP390_REG_CMD, BMP390_CMD_SOFTRESET};
     //write soft reset
+    dev->configured = false;
     if (!bm_i2c_write(
         dev->i2c_num, 
         dev->addr, 
         buf, 
         2
-    )) { return false; }
-    dev->configured = false; 
+    )) { return false; } 
     //poll to wait until done
     uint32_t timeout = BMP390_TIMEOUT_CYCLES;
     uint8_t statusbuf[1] = {0};
