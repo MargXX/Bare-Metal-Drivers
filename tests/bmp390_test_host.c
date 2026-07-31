@@ -11,8 +11,10 @@
 
 #define REG_COUNT 256
 extern uint8_t regs[];
-extern uint8_t fail_after_n_calls;
+extern uint8_t fail_after_n_calls; //for i2c transactions
 extern uint32_t clock_ms;
+extern bool fake_reset_signals_ready;
+extern bool fake_reset_restores_defaults;
 
 //making this global for convienience
 static bmp390_calib_t calib_data;
@@ -42,6 +44,7 @@ void setUp(void) {
 
     dev = (bmp390_t){0};
     dev.addr = BMP390_I2C_ADDR_DEFAULT;
+    dev.i2c_num = 0;
     
     for (size_t i = 0; i<REG_COUNT; i++) {
         regs[i] = 0;
@@ -55,18 +58,14 @@ void setUp(void) {
     fail_after_n_calls = 0xFF;
 
     cfg = (bmp390_config_t){0};
+
+    fake_reset_signals_ready = true;
+    fake_reset_restores_defaults = true;
 }
 
 void tearDown(void) {
     // clean stuff up here
 }
-
-//template so I dont forget
-//TODO: clean this up after testing is set up
-// void test_function_should_doBlahAndBlah(void) {
-//     //test stuff
-//     TEST_IGNORE();
-// }
 
 void test_power_of_two_exact(void) {
     //static float power_of_two(uint16_t pow);
@@ -443,7 +442,6 @@ void test_calibration_parse_syntheic(void) {
 
 }
 
-
 // second precision fixture, real NVM capture
 void test_calibration_parse_real_capture(void) {
     //set up registers with real calib data
@@ -639,6 +637,28 @@ void test_configure_registers(void) {
         (BMP390_IIR_COEF_127 << BMP390_CONFIG_IIR_FILTER_Pos) & BMP390_CONFIG_IIR_FILTER_Msk, 
         regs[BMP390_REG_CONFIG] 
     );
+
+    //config after another
+
+    bm_bmp390_default_config(&cfg);
+    completed = bm_bmp390_configure(&dev, &cfg);
+    TEST_ASSERT(completed);
+    TEST_ASSERT_EQUAL_UINT8(
+        (BMP390_PWR_CTRL_TEMP_EN_Msk | BMP390_PWR_CTRL_PRESS_EN_Msk) | (BMP390_MODE_NORMAL << BMP390_PWR_CTRL_MODE_Pos), 
+        regs[BMP390_REG_PWR_CTRL] 
+    );
+    TEST_ASSERT_EQUAL_UINT8(
+        (BMP390_OSR_X8 << BMP390_OSR_OSR_P_Pos) | (BMP390_OSR_X1 << BMP390_OSR_OSR_T_Pos), 
+        regs[BMP390_REG_OSR] 
+    );
+    TEST_ASSERT_EQUAL_UINT8(
+        (BMP390_ODR_25_HZ << BMP390_ODR_ODR_SEL_Pos) & BMP390_ODR_ODR_SEL_Msk, 
+        regs[BMP390_REG_ODR] 
+    );
+    TEST_ASSERT_EQUAL_UINT8(
+        (BMP390_IIR_COEF_0 << BMP390_CONFIG_IIR_FILTER_Pos) & BMP390_CONFIG_IIR_FILTER_Msk, 
+        regs[BMP390_REG_CONFIG] 
+    );
 }
 
 void test_configure_NAK(void) {
@@ -743,6 +763,348 @@ void test_data_ready_core_and_NAK(void) {
     TEST_ASSERT(!completed);
 }
 
+void test_get_status(void) {
+    //null and init guards
+    dev.initialized = true;
+    uint8_t status_out, error_out;
+    completed = bm_bmp390_get_status(NULL, &error_out, &status_out);
+
+    dev.initialized = false;
+    completed |= bm_bmp390_get_status(&dev, &error_out, &status_out);
+
+    dev.initialized = true;
+    completed |= bm_bmp390_get_status(&dev, NULL, NULL);
+
+    TEST_ASSERT(!completed);
+
+    //use cases
+    regs[BMP390_REG_STATUS] = 0x67;
+    regs[BMP390_REG_ERR_REG] = 0x5A;
+    completed = bm_bmp390_get_status(&dev, &error_out, &status_out);
+    TEST_ASSERT(completed);
+    TEST_ASSERT_EQUAL_UINT8(0x67,status_out);
+    TEST_ASSERT_EQUAL_UINT8(0x5A,error_out);
+    completed = bm_bmp390_get_status(&dev, NULL, &status_out);
+    TEST_ASSERT(completed);
+    TEST_ASSERT_EQUAL_UINT8(0x67,status_out);
+    completed = bm_bmp390_get_status(&dev, &error_out, NULL);
+    TEST_ASSERT(completed);
+    TEST_ASSERT_EQUAL_UINT8(0x5A,error_out);
+
+    //naks
+    fail_after_n_calls = 0;
+    completed = bm_bmp390_get_status(&dev, &error_out, &status_out);
+    TEST_ASSERT(!completed);
+
+    fail_after_n_calls = 1;
+    completed = bm_bmp390_get_status(&dev, &error_out, &status_out);
+    TEST_ASSERT(!completed);
+}
+
+void test_default_config(void) {
+    //null guard
+    completed = bm_bmp390_default_config(NULL);
+    TEST_ASSERT(!completed);
+
+    completed = bm_bmp390_default_config(&cfg);
+    TEST_ASSERT(completed);
+
+    //compare against desired defaults
+    TEST_ASSERT(cfg.press_en);
+    TEST_ASSERT(cfg.temp_en);
+    TEST_ASSERT_EQUAL_UINT8(BMP390_MODE_NORMAL, cfg.mode);
+    TEST_ASSERT_EQUAL_UINT8(BMP390_OSR_X8, cfg.osr_p);
+    TEST_ASSERT_EQUAL_UINT8(BMP390_OSR_X1, cfg.osr_t);
+    TEST_ASSERT_EQUAL_UINT8(BMP390_ODR_25_HZ, cfg.odr);
+    TEST_ASSERT_EQUAL_UINT8(BMP390_IIR_COEF_0, cfg.iir);
+
+}
+
+void test_soft_reset(void) {
+    //guards
+    completed = bm_bmp390_soft_reset(NULL);
+    TEST_ASSERT(!completed);
+
+    dev.i2c_num = 59; //not 0 so invalid with fake
+    completed = bm_bmp390_soft_reset(&dev);
+    TEST_ASSERT(!completed);
+
+    //success
+    dev.initialized = true;
+    dev.i2c_num = 0;
+    bm_bmp390_default_config(&cfg); //all not power on defaults
+    bm_bmp390_configure(&dev, &cfg);
+    completed = bm_bmp390_soft_reset(&dev);
+    TEST_ASSERT(completed);
+    TEST_ASSERT(!dev.configured);
+    TEST_ASSERT_EQUAL_UINT8(BMP390_CMD_SOFTRESET, regs[BMP390_REG_CMD]);
+    regs[BMP390_REG_STATUS] = 0;//clean up
+
+    //timeout check
+    bm_bmp390_configure(&dev, &cfg);
+    fake_reset_signals_ready = false;
+    completed = bm_bmp390_soft_reset(&dev);
+    TEST_ASSERT(!completed);
+    TEST_ASSERT(!dev.configured);
+
+    //readback mismatch
+    bm_bmp390_default_config(&cfg);
+    bm_bmp390_configure(&dev, &cfg);
+    fake_reset_signals_ready = true;
+    fake_reset_restores_defaults = false;
+    completed = bm_bmp390_soft_reset(&dev);
+    TEST_ASSERT(!completed);
+    TEST_ASSERT(!dev.configured);
+
+    //naks
+    bm_bmp390_default_config(&cfg);
+    bm_bmp390_configure(&dev, &cfg);
+    fake_reset_signals_ready = true;
+    fake_reset_restores_defaults = true;
+
+    fail_after_n_calls = 0;
+    completed = bm_bmp390_soft_reset(&dev);
+    TEST_ASSERT(!completed);
+    TEST_ASSERT(!dev.configured);
+
+    fail_after_n_calls = 2;
+    completed = bm_bmp390_soft_reset(&dev);
+    TEST_ASSERT(!completed);
+    TEST_ASSERT(!dev.configured);
+}
+
+void test_init(void) {
+    //front guards
+    completed = bm_bmp390_init(NULL,0,BMP390_I2C_ADDR_DEFAULT);
+    TEST_ASSERT(!completed);
+    completed = bm_bmp390_init(&dev,1,BMP390_I2C_ADDR_DEFAULT);
+    TEST_ASSERT(!completed);
+
+    //chip ID check
+    regs[BMP390_REG_CHIP_ID] = 0x67;
+    completed = bm_bmp390_init(&dev, 0, BMP390_I2C_ADDR_DEFAULT);
+    TEST_ASSERT(!completed);
+    regs[BMP390_REG_CHIP_ID] = BMP390_CHIP_ID_VALUE;  //cleanup 
+    
+    //naks - comments indicate where these likely test based on current internals
+    fail_after_n_calls = 0; //chip id read
+    completed = bm_bmp390_init(&dev,0,BMP390_I2C_ADDR_DEFAULT);
+    TEST_ASSERT(!completed);
+    fail_after_n_calls = 1; //soft reset
+    completed = bm_bmp390_init(&dev,0,BMP390_I2C_ADDR_DEFAULT);
+    TEST_ASSERT(!completed);
+    fail_after_n_calls = 4; //after soft reset
+    completed = bm_bmp390_init(&dev,0,BMP390_I2C_ADDR_DEFAULT);
+    TEST_ASSERT(!completed);
+
+    // success call
+    fail_after_n_calls = 0xFF;
+    completed = bm_bmp390_init(&dev,0,BMP390_I2C_ADDR_DEFAULT);
+    TEST_ASSERT(completed);
+    TEST_ASSERT(dev.initialized);
+    TEST_ASSERT(!dev.configured);
+    TEST_ASSERT_EQUAL_UINT8(BMP390_I2C_ADDR_DEFAULT, dev.addr);
+    TEST_ASSERT_EQUAL_UINT8(0, dev.i2c_num);
+}
+
+//functon is read_and_compensate wrapper hense similar testing
+void test_read(void) {
+    bmp390_data_t data_out;
+
+
+    calib_data = (bmp390_calib_t){
+        .par_t1   = 3,
+        .par_t2   = 5,
+        .par_t3   = 7,
+        .par_p1   = 11,
+        .par_p2   = 13,
+        .par_p3   = 17,
+        .par_p4   = 19,
+        .par_p5   = 23,
+        .par_p6   = 29,
+        .par_p7   = 31,
+        .par_p8   = 37,
+        .par_p9   = 41,
+        .par_p10  = 43,
+        .par_p11  = 47,
+        .t_lin    = 53,
+    };
+    uint8_t press_temp_data[] = {
+        //press first
+        0x01, 0x81, 0xF1,
+        //temp second
+        0x02, 0x82, 0xF2,
+    };
+    for (uint8_t i = 0; i < BMP390_DATA_LEN; i++) {
+        regs[BMP390_REG_DATA_0 + i] = press_temp_data[i];
+    }
+    //actual results
+    dev.calib = calib_data;
+    dev.initialized = true;
+    dev.configured = true;
+    completed = bm_bmp390_read(&dev, &data_out);
+    TEST_ASSERT(completed);
+
+    //expected answers
+    uint32_t press_raw_exp = 
+        (uint32_t)  press_temp_data[0] +   
+                    (press_temp_data[1] << 8) + 
+                    (press_temp_data[2] << 16);
+    uint32_t temp_raw_exp = 
+        (uint32_t)  press_temp_data[3] +   
+                    (press_temp_data[4] << 8) + 
+                    (press_temp_data[5] << 16);
+    float exp_temp = compensate_temperature(&calib_data, temp_raw_exp);
+    float exp_pres = compensate_pressure(&calib_data, press_raw_exp);
+
+    
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(exp_temp) * 0.01f + 1e-9f, exp_temp, data_out.temperature_c);
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(exp_pres) * 0.01f + 1e-9f, exp_pres, data_out.pressure_pa);
+
+    dev.calib = calib_data;
+    dev.initialized = true;
+    dev.configured = true;
+
+    //naks
+    fail_after_n_calls = 0;
+    completed = bm_bmp390_read(&dev, &data_out);
+    TEST_ASSERT(!completed);
+
+    fail_after_n_calls = 0xFF;
+    completed = bm_bmp390_read(&dev, &data_out);
+    TEST_ASSERT(completed);
+
+    //null guards
+    completed = bm_bmp390_read(NULL, &data_out);
+    dev.initialized = true;
+    dev.configured = true;
+    completed |= bm_bmp390_read(&dev, NULL);
+    dev.initialized = false;
+    dev.configured = true;
+    completed |= bm_bmp390_read(&dev, &data_out);
+    dev.initialized = true;
+    dev.configured = false;
+    completed |= bm_bmp390_read(&dev, &data_out);
+    dev.addr = 0;
+    dev.initialized = true;
+    dev.configured = true;
+    completed |= bm_bmp390_read(&dev, &data_out);
+    TEST_ASSERT(!completed);
+}
+
+void test_read_forced_success(void) {
+    bmp390_data_t data_out;
+
+    //setup registers
+    //set data ready
+    regs[BMP390_REG_STATUS] = BMP390_STATUS_DRDY_TEMP_Msk | BMP390_STATUS_DRDY_PRESS_Msk;
+    //preload data
+    uint8_t press_temp_data[] = {
+        //press first
+        0x01, 0x81, 0xF1,
+        //temp second
+        0x02, 0x82, 0xF2,
+    };
+    for (uint8_t i = 0; i < BMP390_DATA_LEN; i++) {
+        regs[BMP390_REG_DATA_0 + i] = press_temp_data[i];
+    }
+
+    //setup dev
+    calib_data = (bmp390_calib_t){
+        .par_t1   = 3,
+        .par_t2   = 5,
+        .par_t3   = 7,
+        .par_p1   = 11,
+        .par_p2   = 13,
+        .par_p3   = 17,
+        .par_p4   = 19,
+        .par_p5   = 23,
+        .par_p6   = 29,
+        .par_p7   = 31,
+        .par_p8   = 37,
+        .par_p9   = 41,
+        .par_p10  = 43,
+        .par_p11  = 47,
+        .t_lin    = 53,
+    };
+    dev.calib = calib_data;
+    dev.initialized = true;
+    dev.configured = true;
+    bm_bmp390_default_config(&cfg);
+    bm_bmp390_configure(&dev,&cfg);
+    dev.cfg.mode = BMP390_MODE_SLEEP;
+    completed = bm_bmp390_read_forced(&dev, &data_out);
+    TEST_ASSERT(completed);
+    //expected answers
+    uint32_t press_raw_exp = 
+        (uint32_t)  press_temp_data[0] +   
+                    (press_temp_data[1] << 8) + 
+                    (press_temp_data[2] << 16);
+    uint32_t temp_raw_exp = 
+        (uint32_t)  press_temp_data[3] +   
+                    (press_temp_data[4] << 8) + 
+                    (press_temp_data[5] << 16);
+    float exp_temp = compensate_temperature(&calib_data, temp_raw_exp);
+    float exp_pres = compensate_pressure(&calib_data, press_raw_exp);
+
+    
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(exp_temp) * 0.01f + 1e-9f, exp_temp, data_out.temperature_c);
+    TEST_ASSERT_FLOAT_WITHIN(fabsf(exp_pres) * 0.01f + 1e-9f, exp_pres, data_out.pressure_pa);
+}
+
+void test_read_forced_faults(void) {
+    bmp390_data_t data_out;
+    regs[BMP390_REG_STATUS] = BMP390_STATUS_DRDY_TEMP_Msk | BMP390_STATUS_DRDY_PRESS_Msk;
+    dev.initialized = true;
+    dev.configured = true;
+
+    //naks
+    dev.cfg.mode = BMP390_MODE_SLEEP;
+    fail_after_n_calls = 0;
+    completed = bm_bmp390_read_forced(&dev, &data_out);
+    TEST_ASSERT(!completed);
+
+    dev.cfg.mode = BMP390_MODE_SLEEP;
+    fail_after_n_calls = 0xFF;
+    completed = bm_bmp390_read_forced(&dev, &data_out);
+    TEST_ASSERT(completed);
+
+    //guards
+    dev.cfg.mode = BMP390_MODE_SLEEP;
+    completed = bm_bmp390_read_forced(NULL, &data_out);
+    dev.initialized = true;
+    dev.configured = true;
+    completed |= bm_bmp390_read_forced(&dev, NULL);
+    dev.initialized = false;
+    dev.configured = true;
+    completed |= bm_bmp390_read_forced(&dev, &data_out);
+    dev.initialized = true;
+    dev.configured = false;
+    completed |= bm_bmp390_read_forced(&dev, &data_out);
+    dev.addr = 0;
+    dev.initialized = true;
+    dev.configured = true;
+    completed |= bm_bmp390_read_forced(&dev, &data_out);
+    TEST_ASSERT(!completed);
+
+    dev.cfg.mode = BMP390_MODE_NORMAL;
+    dev.initialized = true;
+    dev.configured = true;
+    completed = bm_bmp390_read_forced(&dev, &data_out);
+    TEST_ASSERT(!completed);
+
+    dev.addr = BMP390_I2C_ADDR_DEFAULT;//cleanup
+
+    //timeout - drdy never set
+    dev.cfg.mode = BMP390_MODE_SLEEP;
+    regs[BMP390_REG_STATUS] = 0;
+    dev.initialized = true;
+    dev.configured = true;
+    completed = bm_bmp390_read_forced(&dev, &data_out);
+    TEST_ASSERT(!completed);
+}
+
+
 // not needed when using generate_test_runner.rb
 int main(void) {
     UNITY_BEGIN();
@@ -763,5 +1125,12 @@ int main(void) {
     RUN_TEST(test_configure_NAK);
     RUN_TEST(test_data_ready_guards);
     RUN_TEST(test_data_ready_core_and_NAK);
+    RUN_TEST(test_get_status);
+    RUN_TEST(test_default_config);
+    RUN_TEST(test_soft_reset);
+    RUN_TEST(test_init);
+    RUN_TEST(test_read);
+    RUN_TEST(test_read_forced_success);
+    RUN_TEST(test_read_forced_faults);
     return UNITY_END();
 }
