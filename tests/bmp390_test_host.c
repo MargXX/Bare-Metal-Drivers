@@ -1,5 +1,6 @@
 #include "unity/unity.h"
 #include "../BMP390/bmp390.c"
+#include "../BMP390/bmp390.h"
 
 
 //command for initial compilation
@@ -17,6 +18,7 @@ extern uint32_t clock_ms;
 static bmp390_calib_t calib_data;
 static bmp390_t dev;
 static bool completed;
+static bmp390_config_t cfg;
 
 void setUp(void) {
     // set stuff up here
@@ -39,6 +41,7 @@ void setUp(void) {
     };
 
     dev = (bmp390_t){0};
+    dev.addr = BMP390_I2C_ADDR_DEFAULT;
     
     for (size_t i = 0; i<REG_COUNT; i++) {
         regs[i] = 0;
@@ -50,6 +53,8 @@ void setUp(void) {
     clock_ms = 0;
 
     fail_after_n_calls = 0xFF;
+
+    cfg = (bmp390_config_t){0};
 }
 
 void tearDown(void) {
@@ -358,7 +363,6 @@ void test_compensate_temperature_total(void) {
 //mainly checking i2c_fake proper connection
 void test_check_ID_uses_i2c(void) {
     uint8_t id = 0xFF;
-    dev.addr = BMP390_I2C_ADDR_DEFAULT;
     dev.i2c_num = 0;
 
     //set ID reg to correct
@@ -534,11 +538,12 @@ void test_read_and_compensate_calculations(void) {
     }
     //actual results
     dev.calib = calib_data;
-    dev.addr = BMP390_I2C_ADDR_DEFAULT;
     dev.initialized = true;
     dev.configured = true;
     bmp390_data_t data_out;
     completed = read_and_compensate(&dev, &data_out);
+
+    
 
     //expected answers
     uint32_t press_raw_exp = 
@@ -558,7 +563,6 @@ void test_read_and_compensate_calculations(void) {
 }
 
 void test_read_and_compensate_guards(void) {
-    dev.addr = BMP390_I2C_ADDR_DEFAULT;
     bmp390_data_t data_out;
     completed = read_and_compensate(NULL, &data_out);
     dev.initialized = true;
@@ -579,7 +583,6 @@ void test_read_and_compensate_guards(void) {
 
 void test_read_and_compensate_NAK(void) {
     dev.calib = calib_data;
-    dev.addr = BMP390_I2C_ADDR_DEFAULT;
     dev.initialized = true;
     dev.configured = true;
     bmp390_data_t data_out;
@@ -592,6 +595,152 @@ void test_read_and_compensate_NAK(void) {
     fail_after_n_calls = 0xFF;
     completed = read_and_compensate(&dev, &data_out);
     TEST_ASSERT(completed);
+}
+
+void test_configure_guards(void) {
+    bm_bmp390_default_config(&cfg);
+    dev.initialized = false;
+    completed = bm_bmp390_configure(&dev, &cfg);
+    dev.initialized = true;
+    completed |= bm_bmp390_configure(NULL, &cfg);
+    completed |= bm_bmp390_configure(&dev, NULL);
+    TEST_ASSERT(!completed);
+}
+
+void test_configure_registers(void) {
+    dev.calib = calib_data;
+    dev.initialized = true;
+    dev.configured = false;
+
+    bmp390_config_t unique_cfg = { //nonstandard config
+        .iir =      BMP390_IIR_COEF_127,
+        .mode =     BMP390_MODE_SLEEP,
+        .odr =      BMP390_ODR_12P5_HZ,
+        .osr_p =    BMP390_OSR_X32,
+        .osr_t =    BMP390_OSR_X16,
+        .press_en = true,
+        .temp_en =  true,
+    };
+    completed = bm_bmp390_configure(&dev, &unique_cfg);
+    TEST_ASSERT(completed);
+    TEST_ASSERT_EQUAL_UINT8(
+        (BMP390_PWR_CTRL_TEMP_EN_Msk | BMP390_PWR_CTRL_PRESS_EN_Msk), 
+        regs[BMP390_REG_PWR_CTRL] 
+    );
+    TEST_ASSERT_EQUAL_UINT8(
+        (BMP390_OSR_X32 << BMP390_OSR_OSR_P_Pos) | (BMP390_OSR_X16 << BMP390_OSR_OSR_T_Pos), 
+        regs[BMP390_REG_OSR] 
+    );
+    TEST_ASSERT_EQUAL_UINT8(
+        (BMP390_ODR_12P5_HZ << BMP390_ODR_ODR_SEL_Pos) & BMP390_ODR_ODR_SEL_Msk, 
+        regs[BMP390_REG_ODR] 
+    );
+    TEST_ASSERT_EQUAL_UINT8(
+        (BMP390_IIR_COEF_127 << BMP390_CONFIG_IIR_FILTER_Pos) & BMP390_CONFIG_IIR_FILTER_Msk, 
+        regs[BMP390_REG_CONFIG] 
+    );
+}
+
+void test_configure_NAK(void) {
+    dev.calib = calib_data;
+    dev.initialized = true;
+    dev.configured = false;
+    bm_bmp390_default_config(&cfg);
+
+    fail_after_n_calls = 0;
+    completed = bm_bmp390_configure(&dev, &cfg);
+    TEST_ASSERT(!dev.configured);
+    
+    fail_after_n_calls = 1;
+    completed |= bm_bmp390_configure(&dev, &cfg);
+    TEST_ASSERT(!dev.configured);
+    
+    fail_after_n_calls = 2;
+    completed |= bm_bmp390_configure(&dev, &cfg);
+    TEST_ASSERT(!dev.configured);
+    
+    fail_after_n_calls = 3;
+    completed |= bm_bmp390_configure(&dev, &cfg);
+    TEST_ASSERT(!dev.configured);
+
+    dev.configured = true;
+
+    fail_after_n_calls = 0;
+    completed = bm_bmp390_configure(&dev, &cfg);
+    TEST_ASSERT(!dev.configured);
+    
+    dev.configured = true;
+    
+    fail_after_n_calls = 1;
+    completed |= bm_bmp390_configure(&dev, &cfg);
+    TEST_ASSERT(!dev.configured);
+    
+    dev.configured = true;
+    
+    fail_after_n_calls = 2;
+    completed |= bm_bmp390_configure(&dev, &cfg);
+    TEST_ASSERT(!dev.configured);
+
+    dev.configured = true;
+    
+    fail_after_n_calls = 3;
+    completed |= bm_bmp390_configure(&dev, &cfg);
+    TEST_ASSERT(!dev.configured);
+    
+    TEST_ASSERT(!completed);
+}
+
+void test_data_ready_guards(void) {
+    bool out;
+    completed = bm_bmp390_data_ready(NULL, &out);
+    
+    dev.initialized = true;
+    dev.configured = true;
+    completed |= bm_bmp390_data_ready(&dev, NULL);
+
+    dev.initialized = true;
+    dev.configured = false;
+    completed |= bm_bmp390_data_ready(&dev, &out);
+
+    dev.initialized = false;
+    dev.configured = true;
+    completed |= bm_bmp390_data_ready(&dev, &out);
+
+    TEST_ASSERT(!completed);
+    
+}
+
+void test_data_ready_core_and_NAK(void) {
+    //test positive
+    dev.initialized = true;
+    dev.configured = true;
+    bool out;
+
+
+    regs[BMP390_REG_STATUS] = (BMP390_STATUS_DRDY_PRESS_Msk | BMP390_STATUS_DRDY_TEMP_Msk);
+    completed = bm_bmp390_data_ready(&dev, &out);
+    TEST_ASSERT(completed);
+    TEST_ASSERT(out);
+
+    regs[BMP390_REG_STATUS] = BMP390_STATUS_DRDY_PRESS_Msk;
+    completed = bm_bmp390_data_ready(&dev, &out);
+    TEST_ASSERT(completed);
+    TEST_ASSERT(!out);
+
+    regs[BMP390_REG_STATUS] = BMP390_STATUS_DRDY_TEMP_Msk;
+    completed = bm_bmp390_data_ready(&dev, &out);
+    TEST_ASSERT(completed);
+    TEST_ASSERT(!out);
+
+    regs[BMP390_REG_STATUS] = 0;
+    completed = bm_bmp390_data_ready(&dev, &out);
+    TEST_ASSERT(completed);
+    TEST_ASSERT(!out);
+
+    fail_after_n_calls = 0;
+    regs[BMP390_REG_STATUS] = (BMP390_STATUS_DRDY_PRESS_Msk | BMP390_STATUS_DRDY_TEMP_Msk);
+    completed = bm_bmp390_data_ready(&dev, &out);
+    TEST_ASSERT(!completed);
 }
 
 // not needed when using generate_test_runner.rb
@@ -609,5 +758,10 @@ int main(void) {
     RUN_TEST(test_read_and_compensate_calculations);
     RUN_TEST(test_read_and_compensate_guards);
     RUN_TEST(test_read_and_compensate_NAK);
+    RUN_TEST(test_configure_guards);
+    RUN_TEST(test_configure_registers);
+    RUN_TEST(test_configure_NAK);
+    RUN_TEST(test_data_ready_guards);
+    RUN_TEST(test_data_ready_core_and_NAK);
     return UNITY_END();
 }
