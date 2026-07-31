@@ -223,6 +223,7 @@ bool bm_bmp390_soft_reset(bmp390_t *dev) {
         buf, 
         2
     )) { return false; }
+    dev->configured = false; 
     //poll to wait until done
     uint32_t timeout = BMP390_TIMEOUT_CYCLES;
     uint8_t statusbuf[1] = {0};
@@ -233,7 +234,12 @@ bool bm_bmp390_soft_reset(bmp390_t *dev) {
         timeout--;
         bm_i2c_write_read(dev->i2c_num, dev->addr, BMP390_REG_STATUS, statusbuf, 1);
     }
-    dev->configured = false; 
+
+    //check all settings at default(from datasheet)
+    uint8_t pwr_ctrl_osr[2];
+    if (!bm_i2c_write_read(dev->i2c_num, dev->addr, BMP390_REG_PWR_CTRL, pwr_ctrl_osr, 2)) { return false; }
+    if (pwr_ctrl_osr[0] != 0x00) { return false; }
+    if (pwr_ctrl_osr[1] != 0x02) { return false; }
 
     return true; //success
 }
