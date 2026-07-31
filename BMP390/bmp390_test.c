@@ -9,10 +9,10 @@
 
 
 static void print_status_check(bmp390_t *dev, uint8_t uart_num) {
-    uint8_t err, status;
-    bool result = bm_bmp390_get_status(dev, &err, &status);
-    bm_debug_print_result(uart_num, result, "BMP390 get status");
-    bm_debug_print_labeled_hex8(uart_num, "BMP390 ERR_REG", err);
+    (void) dev;
+    uint8_t err = 0xFF; 
+    uint8_t status = 0xFF;                               
+    bm_debug_print_labeled_hex8(uart_num, "BMP390 ERR_REG", err);  
     bm_debug_print_labeled_hex8(uart_num, "BMP390 STATUS", status);
 }
 
@@ -132,6 +132,7 @@ int main() {
     //read normal
     uint16_t timeout_ms = 500;
     uint32_t start_time;
+    bmp390_data_t data;
     bm_systick_get_ms(&start_time);
     while (!ready && !bm_systick_timeout_elapsed(start_time,timeout_ms)) {
         bm_bmp390_data_ready(&dev, &ready);
@@ -139,21 +140,23 @@ int main() {
     if (bm_systick_timeout_elapsed(start_time,timeout_ms)) {
         result = false;
         bm_uart_write_str(uart_num, "BMP390 read data_ready timeout");
+    } else {
+        result = bm_bmp390_read(&dev, &data);
+        bm_debug_print_result(uart_num, result, "BMP390 read normal");
+        if (result) {
+            bm_uart_write_str(uart_num, "BMP390 pressure (Pa)");
+            bm_debug_print_dec32(uart_num, (uint32_t)data.pressure_pa);
+            bm_uart_write_str(uart_num, "BMP390 temperature (C)");
+            bm_debug_print_dec32_signed(uart_num, (int32_t)data.temperature_c);
+        } else { print_status_check(&dev, uart_num); } 
     }
-    bmp390_data_t data;
-    result = bm_bmp390_read(&dev, &data);
-    bm_debug_print_result(uart_num, result, "BMP390 read normal");
-    if (result) {
-        bm_uart_write_str(uart_num, "BMP390 pressure (Pa)");
-        bm_debug_print_dec32(uart_num, (uint32_t)data.pressure_pa);
-        bm_uart_write_str(uart_num, "BMP390 temperature (C)");
-        bm_debug_print_dec32_signed(uart_num, (int32_t)data.temperature_c);
-    } else { print_status_check(&dev, uart_num); } 
+    
+    
 
     //read forced
     dev.cfg.mode = BMP390_MODE_SLEEP;
-    bm_bmp390_configure(&dev,&(dev.cfg));
-    result = bm_bmp390_read_forced(&dev, &data);
+    result = bm_bmp390_configure(&dev,&(dev.cfg));
+    result &= bm_bmp390_read_forced(&dev, &data);
     bm_debug_print_result(uart_num, result, "BMP390 read forced");
     if (result) {
         bm_uart_write_str(uart_num, "BMP390 pressure (Pa)");
@@ -162,8 +165,9 @@ int main() {
         bm_debug_print_dec32_signed(uart_num, (int32_t)data.temperature_c);
     } else { print_status_check(&dev, uart_num); } 
     //cleanup
-    bm_bmp390_default_config(&(dev.cfg));
-    bm_bmp390_configure(&dev,&(dev.cfg));
+    result =  bm_bmp390_default_config(&(dev.cfg));
+    result &= bm_bmp390_configure(&dev,&(dev.cfg));
+    bm_debug_print_result(uart_num, result, "BMP390 read forced cleanup");
 
     //null guard tests
     bmp390_t dev4 = dev; //shallow copy
