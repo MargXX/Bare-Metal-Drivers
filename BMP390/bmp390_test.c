@@ -47,6 +47,8 @@ int main() {
     bm_uart_write_str(uart_num, "\n\n");
 
     bmp390_t dev;
+
+    
     //init
     result = bm_bmp390_init(&dev, i2c_num, BMP390_I2C_ADDR_DEFAULT );
     bm_debug_print_result(uart_num, result, "BMP390 init");
@@ -54,7 +56,7 @@ int main() {
     // ID check
     uint8_t id;
     result = bm_bmp390_read_chip_id(&dev, &id);
-    if (!result && id != BMP390_CHIP_ID_VALUE) { 
+    if (!result || id != BMP390_CHIP_ID_VALUE) { 
         bm_debug_print_result(uart_num, false, "BMP390 ID check");
         bm_debug_print_labeled_hex8(uart_num, "BMP390 ID instead returned", id);
     } else {
@@ -70,6 +72,12 @@ int main() {
     uint8_t err, status;
     result = bm_bmp390_get_status(&dev, &err, &status);
     bm_debug_print_result(uart_num, result, "BMP390 get status");
+
+    
+    result = bm_bmp390_get_status(&dev, NULL, &status); //should be true
+    bm_debug_print_result(uart_num, result, "BMP390 get status null status only");
+    result = bm_bmp390_get_status(&dev, &err, NULL); //should be true
+    bm_debug_print_result(uart_num, result, "BMP390 get status null err only");
 
     //check calibration data, read twice to verify consistency
     uint8_t calib1[BMP390_CALIB_DATA_LEN];
@@ -143,6 +151,8 @@ int main() {
     } else { print_status_check(&dev, uart_num); } 
 
     //read forced
+    dev.cfg.mode = BMP390_MODE_SLEEP;
+    bm_bmp390_configure(&dev,&(dev.cfg));
     result = bm_bmp390_read_forced(&dev, &data);
     bm_debug_print_result(uart_num, result, "BMP390 read forced");
     if (result) {
@@ -151,6 +161,9 @@ int main() {
         bm_uart_write_str(uart_num, "BMP390 temperature (C)");
         bm_debug_print_dec32_signed(uart_num, (int32_t)data.temperature_c);
     } else { print_status_check(&dev, uart_num); } 
+    //cleanup
+    bm_bmp390_default_config(&(dev.cfg));
+    bm_bmp390_configure(&dev,&(dev.cfg));
 
     //null guard tests
     bmp390_t dev4 = dev; //shallow copy
@@ -194,12 +207,11 @@ int main() {
     result |= bm_bmp390_read_chip_id(&dev4, NULL);
     bm_debug_print_result(uart_num, !result, "BMP390 read chip id null");
     if (result) { print_status_check(&dev4, uart_num); } 
+
     //get status
     result = bm_bmp390_get_status(NULL, &err, &status);
-    result |= !bm_bmp390_get_status(&dev4, NULL, &status); //should be true
-    result |= !bm_bmp390_get_status(&dev4, &err, NULL); //should be true
     result |= bm_bmp390_get_status(&dev4, NULL, NULL);
-    bm_debug_print_result(uart_num, !result, "BMP390 get status null");
+    bm_debug_print_result(uart_num, !result, "BMP390 get status null false");
     //default config
     result = bm_bmp390_default_config(NULL);
     bm_debug_print_result(uart_num, !result, "BMP390 default config null");
@@ -257,16 +269,22 @@ int main() {
     //soft reset test
     bmp390_t dev3;
     result = bm_bmp390_init(&dev3, i2c_num, BMP390_I2C_ADDR_DEFAULT);
+    bm_bmp390_default_config(&(dev3.cfg));
     dev3.cfg.mode = BMP390_MODE_FORCED; //nonstandard mode
     result &= bm_bmp390_configure(&dev3, &dev3.cfg);
     result &= bm_bmp390_soft_reset(&dev3);
     //check all settings at default
-    uint8_t pwr_ctrl, osr;
-    bm_i2c_write_read(i2c_num, dev3.addr, BMP390_REG_PWR_CTRL, &pwr_ctrl, 1);
-    bm_i2c_write_read(i2c_num, dev3.addr, BMP390_REG_OSR, &osr, 1);
-    result &= osr == 0x02; //default from datsheet
-    result &= pwr_ctrl == 0x00; //default from datsheet
+    uint8_t pwr_ctrl = 0xA5;
+    uint8_t osr = 0x5A;
+    result &= bm_i2c_write_read(i2c_num, dev3.addr, BMP390_REG_PWR_CTRL, &pwr_ctrl, 1);
+    result &= bm_i2c_write_read(i2c_num, dev3.addr, BMP390_REG_OSR, &osr, 1);
     bm_debug_print_result(uart_num, result, "BMP390 soft reset check");
+    result = osr == 0x00; //datasheet incorrect from testing
+    bm_debug_print_result(uart_num, result, "BMP390 soft reset check osr");
+    bm_debug_print_hex8(uart_num, osr);
+    result = pwr_ctrl == 0x00; //default from datsheet
+    bm_debug_print_result(uart_num, result, "BMP390 soft reset check pwr_ctrl");
+    bm_debug_print_hex8(uart_num, pwr_ctrl);
     if (!result) { 
         print_status_check(&dev3, uart_num); 
     }

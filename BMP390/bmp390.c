@@ -235,11 +235,11 @@ bool bm_bmp390_soft_reset(bmp390_t *dev) {
         bm_i2c_write_read(dev->i2c_num, dev->addr, BMP390_REG_STATUS, statusbuf, 1);
     }
 
-    //check all settings at default(from datasheet)
+    //check all settings at default
     uint8_t pwr_ctrl_osr[2];
     if (!bm_i2c_write_read(dev->i2c_num, dev->addr, BMP390_REG_PWR_CTRL, pwr_ctrl_osr, 2)) { return false; }
     if (pwr_ctrl_osr[0] != 0x00) { return false; }
-    if (pwr_ctrl_osr[1] != 0x02) { return false; }
+    if (pwr_ctrl_osr[1] != 0x00) { return false; }//datasheet incorrect from my testing
 
     return true; //success
 }

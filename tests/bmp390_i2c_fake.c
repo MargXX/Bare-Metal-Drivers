@@ -43,7 +43,7 @@ bool bm_i2c_write(uint8_t i2c_num, uint8_t addr, const uint8_t *buf, size_t len)
         }
         if (fake_reset_restores_defaults) {
             regs[BMP390_REG_PWR_CTRL] = 0x00;
-            regs[BMP390_REG_OSR] = 0x02;
+            regs[BMP390_REG_OSR] = 0x00;
         }
     }
     for (size_t i=0; i<(len - 1); i++) {//first byte is reg addr
