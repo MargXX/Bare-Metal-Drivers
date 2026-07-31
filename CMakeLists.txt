@@ -36,8 +36,6 @@ bm_add_test_executable(gpio_test
     GPIO/gpio_test.c
 )
 
-# skip systick for now
-
 bm_add_test_executable(uart_test
     GPIO/gpio.c
     SysTick/systick.c

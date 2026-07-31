@@ -42,8 +42,8 @@ bool bm_i2c_write(uint8_t i2c_num, uint8_t addr, const uint8_t *buf, size_t len)
             regs[BMP390_REG_STATUS] = BMP390_STATUS_CMD_RDY_Msk;
         }
         if (fake_reset_restores_defaults) {
-            regs[BMP390_REG_PWR_CTRL] = 0x00;
-            regs[BMP390_REG_OSR] = 0x00;
+            regs[BMP390_REG_PWR_CTRL] = BMP390_POWER_ON_PWR_CTRL_DEFAULT;
+            regs[BMP390_REG_OSR] = BMP390_POWER_ON_OSR_DEFAULT;
         }
     }
     for (size_t i=0; i<(len - 1); i++) {//first byte is reg addr

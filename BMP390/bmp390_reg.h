@@ -29,6 +29,8 @@
 // Identity / expected values                                         
 #define BMP390_CHIP_ID_VALUE      0x60    // expected CHIP_ID readback — DS §4.3.1
 
+#define BMP390_POWER_ON_OSR_DEFAULT 0x00
+#define BMP390_POWER_ON_PWR_CTRL_DEFAULT 0x00 //datasheet says 0x02 but is actually 0x00 from my testing
 
 // Register addresses (DS §4.2, Table 25)                             
 
