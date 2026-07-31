@@ -77,7 +77,8 @@ static volatile uart_regs_t * const uart_peripherals[]= {
 };
 
 
-
+// Register pointer for the first UART peripheral (UART0) — use to access registers by name, e.g. UART->UARTDR, index for UART1
+#define UART_NUM_PERIPHERALS 2
 
 
 // Register masks
