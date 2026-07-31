@@ -16,10 +16,9 @@ extern uint32_t clock_ms;
 uint8_t regs[REG_COUNT];
 uint8_t fail_after_n_calls; // fail when 0
 
-//return false if i2c not initialized and true if it is
+//returns true when i2c_num == 0
 bool bm_i2c_is_valid(uint8_t i2c_num){
-    (void)i2c_num;
-    return true;
+    return i2c_num == 0;
 }
 
 
@@ -38,6 +37,8 @@ bool bm_i2c_write(uint8_t i2c_num, uint8_t addr, const uint8_t *buf, size_t len)
     //if reset change status
     if (len == 2 && buf[0] == BMP390_REG_CMD && buf[1] == BMP390_CMD_SOFTRESET) {
         regs[BMP390_REG_STATUS] = BMP390_STATUS_CMD_RDY_Msk;
+        regs[BMP390_REG_PWR_CTRL] = 0x00;
+        regs[BMP390_REG_OSR] = 0x02;
     }
     for (size_t i=0; i<(len - 1); i++) {//first byte is reg addr
         regs[buf[0] + i] = buf[i+1];
