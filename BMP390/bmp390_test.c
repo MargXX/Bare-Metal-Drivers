@@ -9,11 +9,14 @@
 
 
 static void print_status_check(bmp390_t *dev, uint8_t uart_num) {
-    (void) dev;
-    uint8_t err = 0xFF; 
-    uint8_t status = 0xFF;                               
-    bm_debug_print_labeled_hex8(uart_num, "BMP390 ERR_REG", err);  
-    bm_debug_print_labeled_hex8(uart_num, "BMP390 STATUS", status);
+    uint8_t err = 0xA5; 
+    uint8_t status = 0xA5;
+    bool result = bm_bmp390_get_status(dev, &err, &status);       
+    bm_debug_print_result(uart_num, result, "BMP390 get status");                        
+    if (result) {
+        bm_debug_print_labeled_hex8(uart_num, "BMP390 ERR_REG", err);  
+        bm_debug_print_labeled_hex8(uart_num, "BMP390 STATUS", status);
+    } 
 }
 
 //testing this works on the pico, this feels very silly
@@ -137,9 +140,9 @@ int main() {
     while (!ready && !bm_systick_timeout_elapsed(start_time,timeout_ms)) {
         bm_bmp390_data_ready(&dev, &ready);
     }
-    if (bm_systick_timeout_elapsed(start_time,timeout_ms)) {
+    if (!ready) {
         result = false;
-        bm_uart_write_str(uart_num, "BMP390 read data_ready timeout");
+        bm_debug_print_result(uart_num, result ,"BMP390 read data_ready timeout");
     } else {
         result = bm_bmp390_read(&dev, &data);
         bm_debug_print_result(uart_num, result, "BMP390 read normal");
@@ -156,7 +159,8 @@ int main() {
     //read forced
     dev.cfg.mode = BMP390_MODE_SLEEP;
     result = bm_bmp390_configure(&dev,&(dev.cfg));
-    result &= bm_bmp390_read_forced(&dev, &data);
+    bm_debug_print_result(uart_num, result, "BMP390 read forced configure");
+    result = bm_bmp390_read_forced(&dev, &data);
     bm_debug_print_result(uart_num, result, "BMP390 read forced");
     if (result) {
         bm_uart_write_str(uart_num, "BMP390 pressure (Pa)");
