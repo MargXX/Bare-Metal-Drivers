@@ -192,13 +192,13 @@ The driver reaches hardware only through the `bm_i2c_*` and `bm_systick_*` publi
 
 Every function in `bmp390.c` is covered: the compensation math, calibration parsing, configuration, data-ready polling, status reads, soft reset, and both read paths. Each is tested for its calculation or side effects, its input guards, and its behaviour when an I2C transaction fails. The suite runs in well under a second and is registered with CTest.
 
-**Test doubles.** `tests/bmp390_i2c_fake.c` models the sensor as a 256-byte register array. Reads serve consecutive registers from that array, matching the real burst auto-increment; writes land `{register, value}` pairs back into it. It validates the device address and bounds-checks every access, so a driver bug that talks to the wrong device or walks off the register map fails the test rather than passing silently. It also intercepts the soft-reset command and restores the datasheet power-on defaults.
+**Test doubles.** `tests/bmp390_i2c_fake.c` models the sensor as a 256-byte register array. Reads serve consecutive registers from that array, matching the real burst auto-increment; writes land `{register, value}` pairs back into it. It validates the device address and bounds-checks every access, so a driver bug that talks to the wrong device or walks off the register map fails the test rather than passing silently. It also intercepts the soft-reset command and restores the power-on defaults observed on hardware, which are not in every case the values printed in the datasheet memory map. See [Datasheet Discrepancies](#datasheet-discrepancies).
 
 Two mechanisms make failure paths reachable. A transaction counter lets a test specify that the Nth I2C transaction should fail, which is how NAK handling is verified at each step of a multi-write sequence. Two independent flags control whether a simulated reset signals completion and whether it actually restores register defaults, which is how the reset timeout and the reset verification step are tested.
 
-`tests/systick_fake.c` provides a settable millisecond counter with rollover-safe elapsed-time arithmetic. Each simulated I2C transaction advances that clock, which models real bus latency and lets polling loops reach a genuine timeout instead of spinning forever.
-
 **Test design.** Expected values are derived independently rather than by re-running the code under test: compensation results are hand-computed, and calibration coefficients are transcribed separately from the datasheet quantization table. Two calibration fixtures are used. The primary one is synthetic, with byte values chosen so that an index slip, a byte-order swap, or a missing sign extension produces an obviously wrong coefficient rather than a plausible one. The second is a 21-byte blob captured from the physical sensor, kept as a differently-shaped input. Floating-point comparisons use a relative tolerance, since the coefficients span roughly twenty orders of magnitude.
+
+Independently derived expected values close one gap but not all of them. Where the fake models device *behaviour* rather than supplying input data, that model is itself derived from the datasheet, so a fake and a driver written from the same wrong page will agree with each other and pass. Device behaviour encoded in the fake is treated as an assumption to be confirmed against hardware, not as ground truth.
 
 ### Layer 2: hardware-in-the-loop
 
@@ -219,11 +219,39 @@ Planned for the flight computer stage: a replay harness that feeds 23+ hours of 
 
 -----
 
+## Datasheet Discrepancies
+
+Values observed on hardware that do not match the reference documentation. Recorded here because a driver written strictly to the datasheet will disagree with the part.
+
+### BMP390 `OSR` (0x1C) power-on value
+
+|                                    | Value  | Decode                                     |
+|------------------------------------|--------|--------------------------------------------|
+| Datasheet Table 25, Default Value  | `0x02` | `osr_p` ×4, `osr_t` ×1                     |
+| Observed on hardware               | `0x00` | `osr_p` ×1, `osr_t` ×1 (ultra low power)   |
+
+Reference: Bosch BMP390 datasheet, BST-BMP390-DS002-07, Revision 1.7 (03/2021), Table 25 "BMP390 memory map".
+
+The reset itself is functioning correctly; only the documented value is wrong. Two independent observations establish this:
+
+- `bm_bmp390_configure` had written `OSR = 0x03`. After the soft reset the register read `0x00`, so the reset did act on it.
+- `PWR_CTRL` went `0x13` → `0x00` across the same reset. Forced mode auto-returns to sleep after one conversion, which clears the mode bits but leaves `press_en` and `temp_en` set, so an un-reset device reads `0x03`. Clearing the enables requires a reset.
+- `OSR` also reads `0x00` immediately after `bm_bmp390_init`, which soft-resets internally, so the value is consistent at two separate points in the run and on two separate handles. Both observations follow a soft reset, so this is a replication rather than an independent confirmation, but it rules out the value being an artifact of the register history in the reset test specifically.
+
+Both reads were confirmed live rather than assumed: the destination bytes were poisoned before the reads, and both `bm_i2c_write_read` return values were checked.
+
+`0x00` is also the more plausible power-on state on its own terms, being the lowest-power oversampling setting rather than ×4 pressure oversampling.
+
+This was found by re-verifying the driver on hardware after a reset read-back was added. Because the read-back sat inside `bm_bmp390_soft_reset`, which `bm_bmp390_init` calls, a single wrong constant failed initialization and cascaded through every function guarded on `initialized`. The host-side suite did not catch it: the fake restored the same documented defaults the driver asserted, so both agreed and both were wrong.
+
+-----
+
 ## Known Limitations
 
 - `bm_bmp390_configure` writes four registers in sequence and is not atomic. If a transaction fails partway through, the handle correctly reports the device as unconfigured, but the sensor may hold a mix of old and new register values. Callers should re-run configuration after a failure rather than assuming the previous configuration survived.
-- `bm_bmp390_soft_reset` gained a register read-back that verifies PWR_CTRL and OSR returned to their power-on defaults. This is covered by unit tests but has not yet been re-verified on hardware.
+- `bm_bmp390_soft_reset` confirms the device has returned by polling `STATUS.cmd_rdy`. Verification that the register file came back to its power-on state lives in the on-target test rather than in the driver, so a wrong expected value fails one test instead of cascading through every function guarded on `initialized`.
 - The polling loops in `bm_bmp390_soft_reset` and `bm_bmp390_read_forced` do not distinguish a persistent bus fault from a slow sensor. Either resolves as a timeout rather than an immediate failure.
+- `bm_bmp390_init` does not populate `dev->cfg`. That field is indeterminate until `bm_bmp390_configure` returns `true`, and `configured` is its validity flag. Every driver path that reads `cfg` checks `configured` first, so no driver code can observe an indeterminate value, but callers must not read it before configuring.
 
 -----
 
@@ -239,6 +267,7 @@ Planned for the flight computer stage: a replay harness that feeds 23+ hours of 
 - Device driver `_reg.h` files (BMP390, LSM9DS1) live in the device folder rather than `platform/rp2040/`, because the sensor register map is chip-specific rather than host-specific and does not change on a port
 - BMP390 compensation uses `float` rather than `double`, matching Bosch's reference implementation. The smallest coefficient scale (`2^-65`) is within float's range, and the terms it feeds are multiplied by large raw values before contributing to the result
 - The I2C test double is named for the device rather than the bus. It encodes BMP390 addressing and reset behaviour, so a second device driver gets its own fake rather than sharing a generalized one
+- `bm_bmp390_read_forced` rejects a call made while `cfg.mode` is `NORMAL`. Triggering a forced conversion drops the device into sleep afterward, which would leave the handle claiming a mode the sensor is no longer in
 
 -----
 
