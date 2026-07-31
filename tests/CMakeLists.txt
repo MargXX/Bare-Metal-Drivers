@@ -28,6 +28,6 @@ target_link_libraries(bmp390_test_host
 
 enable_testing()
 
-add_test(NAME tier1_bmp390 COMMAND bmp390_test_host)
+add_test(NAME bmp390 COMMAND bmp390_test_host)
 
 
