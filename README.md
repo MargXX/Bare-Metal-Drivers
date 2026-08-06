@@ -20,7 +20,7 @@ This driver stack is the foundation layer of a larger flight computer project: a
 |LSM9DS1 (device)|Reassigned |Moved to the flight computer project                                                         |
 |SPI             |Reassigned |Moved to the flight computer project, with onboard flash logging                             |
 |W25Q128 (device)|Reassigned |Depends on SPI; moved with it                                                                |
-|STM32 port      |Stretch    |Low priority follow-on                                                                       |
+|STM32 port      |Planned    |Preparation for change in flight computer board                                              |
 
 **Scope.** This repository covers the RP2040 peripherals above plus the BMP390
 barometer. The LSM9DS1 IMU, flash logging, and the hardware-in-the-loop harness
