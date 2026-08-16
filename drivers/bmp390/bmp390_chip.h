@@ -1,18 +1,18 @@
 /**
- * @file bmp390_platform.h
+ * @file bmp390_chip.h
  * @brief Public, caller-facing constants for the BMP390 device driver
  *
  * For a memory-mapped peripheral, the "base address" is an internal hardware
  * fact and lives in the _reg.h. For an I2C device the closest analog is the
  * 7-bit bus address — but the CALLER selects it (it depends on how the SDO pin
  * is strapped on the board), then passes it into bm_bmp390_init. That makes it
- * exactly the kind of public constant this _platform.h exists for.
+ * exactly the kind of public constant this _chip.h exists for.
  *
  * Reference: BMP390 Datasheet, Section 5 (digital interfaces)
  */
 
-#ifndef BMP390_PLATFORM_H
-#define BMP390_PLATFORM_H
+#ifndef BMP390_CHIP_H
+#define BMP390_CHIP_H
 
 #include <stdint.h>
 
@@ -27,4 +27,4 @@
 // Convenience default for the current board (SDO high). Change per board.
 #define BMP390_I2C_ADDR_DEFAULT   BMP390_I2C_ADDR_SDO_HIGH
 
-#endif /* BMP390_PLATFORM_H */
+#endif /* BMP390_CHIP_H */

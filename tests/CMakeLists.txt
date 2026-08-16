@@ -9,7 +9,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Warning flags applied to project source files only (never the SDK) —
 set(BM_WARNING_FLAGS -Wall -Wextra -Werror)
 
-include_directories(${CMAKE_SOURCE_DIR}/../GPIO)
+include_directories(${CMAKE_SOURCE_DIR}/../platform/rp2040/gpio)
 include_directories(${CMAKE_SOURCE_DIR}/../SysTick)
 include_directories(${CMAKE_SOURCE_DIR}/../UART)
 include_directories(${CMAKE_SOURCE_DIR}/../I2C)
@@ -33,6 +33,10 @@ target_include_directories(bmp390_test_host
 
 target_include_directories(bmp390_test_host
     PRIVATE ../platform/rp2040/i2c
+)
+
+target_include_directories(bmp390_test_host
+    PRIVATE ../drivers/bmp390
 )
 
 target_include_directories(bmp390_test_host

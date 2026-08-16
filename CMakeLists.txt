@@ -19,7 +19,7 @@ include_directories(${CMAKE_SOURCE_DIR}/UART)
 include_directories(${CMAKE_SOURCE_DIR}/platform/${PLATFORM}/uart)
 include_directories(${CMAKE_SOURCE_DIR}/I2C)
 include_directories(${CMAKE_SOURCE_DIR}/platform/${PLATFORM}/i2c)
-include_directories(${CMAKE_SOURCE_DIR}/BMP390)
+include_directories(${CMAKE_SOURCE_DIR}/drivers/bmp390)
 include_directories(${CMAKE_SOURCE_DIR}/Debug)
 
 # Warning flags applied to project source files only (never the SDK) —
@@ -67,7 +67,7 @@ bm_add_test_executable(bmp390_test
     platform/${PLATFORM}/gpio/gpio.c
     SysTick/systick.c
     platform/${PLATFORM}/i2c/i2c.c
-    BMP390/bmp390.c
+    drivers/bmp390/bmp390.c
     Debug/debug_print.c
     Debug/debug_blink.c
     platform/${PLATFORM}/uart/uart.c

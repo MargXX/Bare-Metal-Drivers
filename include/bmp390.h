@@ -36,7 +36,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <math.h> // for ldexpf, which gives us the power-of-two scaling 
-#include "bmp390_platform.h"
+#include "bmp390_chip.h"
 
 // All functions return false on error, true on success (matches the stack
 // convention). Output values are written through caller-supplied pointers.
@@ -139,7 +139,7 @@ typedef struct {
 // and pass &dev into every call. Fields are managed by the driver.
 typedef struct {
     uint8_t        i2c_num;       // which I2C peripheral (passed to bm_i2c_*)
-    uint8_t        addr;          // 7-bit device address (see bmp390_platform.h)
+    uint8_t        addr;          // 7-bit device address (see bmp390_chip.h)
     bmp390_calib_t calib;         // factory coefficients, read at init
     bmp390_config_t cfg;          // last configuration applied (for reference)
     bool           initialized;   // set true once init succeeds

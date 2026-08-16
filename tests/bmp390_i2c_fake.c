@@ -7,7 +7,7 @@
 #include <stddef.h>
 
 #include "i2c.h"
-#include "bmp390_platform.h"
+#include "bmp390_chip.h"
 #include "bmp390_reg.h"
 
 #define REG_COUNT 256
