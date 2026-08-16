@@ -14,6 +14,8 @@ include_directories(${CMAKE_SOURCE_DIR}/../SysTick)
 include_directories(${CMAKE_SOURCE_DIR}/../UART)
 include_directories(${CMAKE_SOURCE_DIR}/../I2C)
 include_directories(${CMAKE_SOURCE_DIR}/../BMP390)
+include_directories(${CMAKE_SOURCE_DIR}/../drivers/bmp390)
+include_directories(${CMAKE_SOURCE_DIR}/../include)
 include_directories(${CMAKE_SOURCE_DIR}/../Debug)
 
 
