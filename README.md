@@ -165,7 +165,7 @@ Using OpenOCD with a CMSIS-DAP debugger, from the project root:
 ```bash
 openocd -f interface/cmsis-dap.cfg -f target/rp2040.cfg \
   -c "adapter speed 5000" \
-  -c "program build/uart_test.elf verify reset exit"
+  -c "program build/bmp390_test.elf verify reset exit"
 ```
 
 ### Monitor serial output
