@@ -5,7 +5,7 @@
 
 #include <stddef.h>
 #include "debug_print.h"
-#include "../UART/uart.h"
+#include "uart.h"
 
 static const char HEX_DIGITS[] = "0123456789ABCDEF";
 

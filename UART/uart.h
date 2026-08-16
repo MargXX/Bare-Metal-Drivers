@@ -20,8 +20,8 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include "../GPIO/gpio.h"
-#include "../SysTick/systick.h"
+
+#include "gpio.h"
 
 // returns false on error, true on success
 

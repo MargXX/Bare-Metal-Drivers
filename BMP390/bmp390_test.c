@@ -1,10 +1,10 @@
 #include "bmp390.h"
-#include "../SysTick/systick.h"
-#include "../I2C/i2c.h"
-#include "../UART/uart.h"
-#include "../GPIO/gpio.h"
-#include "../Debug/debug_print.h"
-#include "../Debug/debug_blink.h"
+#include "systick.h"
+#include "i2c.h"
+#include "uart.h"
+#include "gpio.h"
+#include "debug_print.h"
+#include "debug_blink.h"
 #include "bmp390_reg.h"
 
 

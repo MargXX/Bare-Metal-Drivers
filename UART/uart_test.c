@@ -1,6 +1,6 @@
 #include "uart.h"
-#include "../GPIO/gpio.h"
-#include "../SysTick/systick.h"
+#include "gpio.h"
+#include "systick.h"
 
 
 int main() {

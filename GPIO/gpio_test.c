@@ -1,5 +1,5 @@
 #include "gpio.h"
-#include "../SysTick/systick.h"
+#include "systick.h"
 
 
 int main() {

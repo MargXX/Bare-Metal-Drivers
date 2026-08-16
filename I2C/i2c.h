@@ -21,7 +21,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "i2c_platform.h"
-#include "../GPIO/gpio.h"
+#include "gpio.h"
 
 // returns false on error, true on success
 

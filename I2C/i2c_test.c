@@ -1,7 +1,7 @@
 #include "i2c.h"
-#include "../GPIO/gpio.h"
-#include "../SysTick/systick.h"
-#include "../UART/uart.h"
+#include "gpio.h"
+#include "systick.h"
+#include "uart.h"
 
 #define I2C_ADDR        0x77
 #define I2C_ID_REG_ADDR 0x00

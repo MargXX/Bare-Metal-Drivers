@@ -1,8 +1,8 @@
 
 #include "bmp390.h"
 #include "bmp390_reg.h"
-#include "../I2C/i2c.h"
-#include "../SysTick/systick.h"
+#include "i2c.h"
+#include "systick.h"
 
 //powers of two for the floats. shortcut for readability in the calib parsing
 static float power_of_two(uint16_t pow);

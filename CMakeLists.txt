@@ -9,6 +9,12 @@ set(CMAKE_C_STANDARD 11)
 
 set(PLATFORM "rp2040")
 include_directories(${CMAKE_SOURCE_DIR}/platform/${PLATFORM})
+include_directories(${CMAKE_SOURCE_DIR}/GPIO)
+include_directories(${CMAKE_SOURCE_DIR}/SysTick)
+include_directories(${CMAKE_SOURCE_DIR}/UART)
+include_directories(${CMAKE_SOURCE_DIR}/I2C)
+include_directories(${CMAKE_SOURCE_DIR}/BMP390)
+include_directories(${CMAKE_SOURCE_DIR}/Debug)
 
 # Warning flags applied to project source files only (never the SDK) —
 # see bm_add_test_executable below for how the scoping works.

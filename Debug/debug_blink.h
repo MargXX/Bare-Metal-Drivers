@@ -9,8 +9,8 @@
 #ifndef DEBUG_BLINK_H
 #define DEBUG_BLINK_H
 
-#include "../GPIO/gpio.h"
-#include "../SysTick/systick.h"
+#include "gpio.h"
+#include "systick.h"
 #include <stdint.h>
 #include <stdbool.h>
 
