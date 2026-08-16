@@ -21,8 +21,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "gpio.h"
-
 // returns false on error, true on success
 
 // initialize UART peripheral — must be called before any other UART functions

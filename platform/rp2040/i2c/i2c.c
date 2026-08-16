@@ -1,6 +1,8 @@
 #include "i2c.h"
 #include "i2c_reg.h"
 #include "resets_reg.h"
+#include "gpio.h"
+#include "i2c_platform.h"
 
 
 // functions returns false on error, true on success unless said otherwise in function comment
