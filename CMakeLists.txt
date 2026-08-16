@@ -12,7 +12,6 @@ set(CMAKE_C_STANDARD 11)
 
 set(PLATFORM "rp2040")
 include_directories(${CMAKE_SOURCE_DIR}/platform/${PLATFORM})
-include_directories(${CMAKE_SOURCE_DIR}/GPIO)
 include_directories(${CMAKE_SOURCE_DIR}/platform/${PLATFORM}/gpio)
 include_directories(${CMAKE_SOURCE_DIR}/SysTick)
 include_directories(${CMAKE_SOURCE_DIR}/UART)
@@ -20,7 +19,8 @@ include_directories(${CMAKE_SOURCE_DIR}/platform/${PLATFORM}/uart)
 include_directories(${CMAKE_SOURCE_DIR}/I2C)
 include_directories(${CMAKE_SOURCE_DIR}/platform/${PLATFORM}/i2c)
 include_directories(${CMAKE_SOURCE_DIR}/drivers/bmp390)
-include_directories(${CMAKE_SOURCE_DIR}/Debug)
+include_directories(${CMAKE_SOURCE_DIR}/board/pico-devboard)
+include_directories(${CMAKE_SOURCE_DIR}/include)
 
 # Warning flags applied to project source files only (never the SDK) —
 # see bm_add_test_executable below for how the scoping works.
@@ -43,35 +43,35 @@ function(bm_add_test_executable name)
 endfunction()
 
 bm_add_test_executable(gpio_test
-    platform/${PLATFORM}/gpio/gpio.c
     SysTick/systick.c
-    GPIO/gpio_test.c
+    platform/${PLATFORM}/gpio/gpio.c
+    board/pico-devboard/gpio_test.c
 )
 
 bm_add_test_executable(uart_test
-    platform/${PLATFORM}/gpio/gpio.c
     SysTick/systick.c
+    platform/${PLATFORM}/gpio/gpio.c
     platform/${PLATFORM}/uart/uart.c
-    UART/uart_test.c
+    board/pico-devboard/uart_test.c
 )
 
 bm_add_test_executable(i2c_test
-    platform/${PLATFORM}/gpio/gpio.c
     SysTick/systick.c
+    platform/${PLATFORM}/gpio/gpio.c
     platform/${PLATFORM}/i2c/i2c.c
     platform/${PLATFORM}/uart/uart.c
-    I2C/i2c_test.c
+    board/pico-devboard/i2c_test.c
 )
 
 bm_add_test_executable(bmp390_test
-    platform/${PLATFORM}/gpio/gpio.c
     SysTick/systick.c
+    platform/${PLATFORM}/gpio/gpio.c
     platform/${PLATFORM}/i2c/i2c.c
     drivers/bmp390/bmp390.c
-    Debug/debug_print.c
-    Debug/debug_blink.c
+    board/pico-devboard/debug_print.c
+    board/pico-devboard/debug_blink.c
     platform/${PLATFORM}/uart/uart.c
-    BMP390/bmp390_test.c
+    board/pico-devboard/bmp390_test.c
 )
 
 # using OpenOCD for flashing instead of picotool, so not generating uf2 files

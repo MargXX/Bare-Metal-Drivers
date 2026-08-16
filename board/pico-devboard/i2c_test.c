@@ -2,6 +2,8 @@
 #include "gpio.h"
 #include "systick.h"
 #include "uart.h"
+#include "i2c_platform.h"
+#include "gpio_platform.h"
 
 #define I2C_ADDR        0x77
 #define I2C_ID_REG_ADDR 0x00

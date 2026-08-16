@@ -6,6 +6,9 @@
 #include "debug_print.h"
 #include "debug_blink.h"
 #include "bmp390_reg.h"
+#include "gpio_platform.h"
+#include "i2c_platform.h"
+#include "bmp390_chip.h"
 
 
 static void print_status_check(bmp390_t *dev, uint8_t uart_num) {

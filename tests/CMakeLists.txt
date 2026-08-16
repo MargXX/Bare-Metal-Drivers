@@ -16,7 +16,7 @@ include_directories(${CMAKE_SOURCE_DIR}/../I2C)
 include_directories(${CMAKE_SOURCE_DIR}/../BMP390)
 include_directories(${CMAKE_SOURCE_DIR}/../drivers/bmp390)
 include_directories(${CMAKE_SOURCE_DIR}/../include)
-include_directories(${CMAKE_SOURCE_DIR}/../Debug)
+include_directories(${CMAKE_SOURCE_DIR}/../board/pico-devboard/Debug)
 
 
 
