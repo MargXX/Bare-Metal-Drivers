@@ -13,6 +13,7 @@ set(CMAKE_C_STANDARD 11)
 set(PLATFORM "rp2040")
 include_directories(${CMAKE_SOURCE_DIR}/platform/${PLATFORM})
 include_directories(${CMAKE_SOURCE_DIR}/GPIO)
+include_directories(${CMAKE_SOURCE_DIR}/platform/${PLATFORM}/gpio)
 include_directories(${CMAKE_SOURCE_DIR}/SysTick)
 include_directories(${CMAKE_SOURCE_DIR}/UART)
 include_directories(${CMAKE_SOURCE_DIR}/platform/${PLATFORM}/uart)
@@ -42,20 +43,20 @@ function(bm_add_test_executable name)
 endfunction()
 
 bm_add_test_executable(gpio_test
-    GPIO/gpio.c
+    platform/${PLATFORM}/gpio/gpio.c
     SysTick/systick.c
     GPIO/gpio_test.c
 )
 
 bm_add_test_executable(uart_test
-    GPIO/gpio.c
+    platform/${PLATFORM}/gpio/gpio.c
     SysTick/systick.c
     platform/${PLATFORM}/uart/uart.c
     UART/uart_test.c
 )
 
 bm_add_test_executable(i2c_test
-    GPIO/gpio.c
+    platform/${PLATFORM}/gpio/gpio.c
     SysTick/systick.c
     platform/${PLATFORM}/i2c/i2c.c
     platform/${PLATFORM}/uart/uart.c
@@ -63,7 +64,7 @@ bm_add_test_executable(i2c_test
 )
 
 bm_add_test_executable(bmp390_test
-    GPIO/gpio.c
+    platform/${PLATFORM}/gpio/gpio.c
     SysTick/systick.c
     platform/${PLATFORM}/i2c/i2c.c
     BMP390/bmp390.c
