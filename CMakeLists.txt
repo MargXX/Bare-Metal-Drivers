@@ -15,6 +15,7 @@ include_directories(${CMAKE_SOURCE_DIR}/platform/${PLATFORM})
 include_directories(${CMAKE_SOURCE_DIR}/GPIO)
 include_directories(${CMAKE_SOURCE_DIR}/SysTick)
 include_directories(${CMAKE_SOURCE_DIR}/UART)
+include_directories(${CMAKE_SOURCE_DIR}/platform/${PLATFORM}/uart)
 include_directories(${CMAKE_SOURCE_DIR}/I2C)
 include_directories(${CMAKE_SOURCE_DIR}/BMP390)
 include_directories(${CMAKE_SOURCE_DIR}/Debug)
@@ -48,7 +49,7 @@ bm_add_test_executable(gpio_test
 bm_add_test_executable(uart_test
     GPIO/gpio.c
     SysTick/systick.c
-    UART/uart.c
+    platform/${PLATFORM}/uart/uart.c
     UART/uart_test.c
 )
 
@@ -56,7 +57,7 @@ bm_add_test_executable(i2c_test
     GPIO/gpio.c
     SysTick/systick.c
     I2C/i2c.c
-    UART/uart.c
+    platform/${PLATFORM}/uart/uart.c
     I2C/i2c_test.c
 )
 
@@ -67,7 +68,7 @@ bm_add_test_executable(bmp390_test
     BMP390/bmp390.c
     Debug/debug_print.c
     Debug/debug_blink.c
-    UART/uart.c
+    platform/${PLATFORM}/uart/uart.c
     BMP390/bmp390_test.c
 )
 

@@ -4,6 +4,8 @@ project(Host_Bare_Metal_Drivers)
 
 set(CMAKE_C_STANDARD 11)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # Warning flags applied to project source files only (never the SDK) —
 set(BM_WARNING_FLAGS -Wall -Wextra -Werror)
 
