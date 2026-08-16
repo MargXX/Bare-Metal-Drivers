@@ -31,6 +31,14 @@ target_include_directories(bmp390_test_host
     PRIVATE ../platform/rp2040
 )
 
+target_include_directories(bmp390_test_host
+    PRIVATE ../platform/rp2040/i2c
+)
+
+target_include_directories(bmp390_test_host
+    PRIVATE ../I2C
+)
+
 target_link_libraries(bmp390_test_host
     PRIVATE m
 )
