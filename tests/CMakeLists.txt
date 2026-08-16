@@ -7,6 +7,13 @@ set(CMAKE_C_STANDARD 11)
 # Warning flags applied to project source files only (never the SDK) —
 set(BM_WARNING_FLAGS -Wall -Wextra -Werror)
 
+include_directories(${CMAKE_SOURCE_DIR}/../GPIO)
+include_directories(${CMAKE_SOURCE_DIR}/../SysTick)
+include_directories(${CMAKE_SOURCE_DIR}/../UART)
+include_directories(${CMAKE_SOURCE_DIR}/../I2C)
+include_directories(${CMAKE_SOURCE_DIR}/../BMP390)
+include_directories(${CMAKE_SOURCE_DIR}/../Debug)
+
 
 
 add_executable(bmp390_test_host

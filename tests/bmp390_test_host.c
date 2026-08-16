@@ -1,6 +1,6 @@
 #include "unity/unity.h"
-#include "../BMP390/bmp390.c"
-#include "../BMP390/bmp390.h"
+#include "bmp390.c"
+#include "bmp390.h"
 
 
 //command for initial compilation

@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include "../SysTick/systick.h"
+#include "systick.h"
 
 uint32_t clock_ms;
 

@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.18)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+
 set(PICO_SDK_PATH $ENV{PICO_SDK_PATH})
 set(CMAKE_TOOLCHAIN_FILE ${PICO_SDK_PATH}/cmake/preload/toolchains/pico_arm_cortex_m0plus_gcc.cmake)
 

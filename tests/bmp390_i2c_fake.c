@@ -6,9 +6,9 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include "../I2C/i2c.h"
-#include "../BMP390/bmp390_platform.h"
-#include "../BMP390/bmp390_reg.h"
+#include "i2c.h"
+#include "bmp390_platform.h"
+#include "bmp390_reg.h"
 
 #define REG_COUNT 256
 
