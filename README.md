@@ -12,8 +12,8 @@ This driver stack is the foundation layer of a larger flight computer project: a
 
 | Driver | Status | Notes |
 |---|---|---|
-| GPIO | Complete | Verified on hardware. LED blink on GP25. Platform-specific by design; see [Portability](#portability). |
-| SysTick | Complete | ISR-driven millisecond timing. 125 MHz processor clock. Verified portable across ARMv6-M and ARMv7-M; see [Portability](#portability). |
+| GPIO | Complete | Verified on hardware. Platform-specific by design; see [Portability](#portability). |
+| SysTick | Complete | ISR-driven millisecond timing. Verified portable across ARMv6-M and ARMv7-M; see [Portability](#portability). |
 | UART | Complete | Verified on hardware. TX confirmed via logic analyzer and serial monitor. |
 | I2C | Complete | All transaction functions verified on hardware. First sensor read (BMP390 CHIP_ID) confirmed. |
 | BMP390 (device) | Complete | Verified on hardware: init, configure, soft reset, data-ready, forced and normal reads, float compensation. Ambient readings 100,764 Pa and 22 °C. Full host-side unit test coverage. |
