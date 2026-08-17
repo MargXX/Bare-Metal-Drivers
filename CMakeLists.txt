@@ -69,6 +69,8 @@ bm_add_test_executable(i2c_test
     platform/${PLATFORM}/gpio/gpio.c
     platform/${PLATFORM}/i2c/i2c.c
     platform/${PLATFORM}/uart/uart.c
+    board/pico-devboard/debug_print.c
+    board/pico-devboard/debug_blink.c
     board/pico-devboard/i2c_test.c
 )
 

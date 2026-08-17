@@ -4,25 +4,13 @@
 #include "uart.h"
 #include "i2c_platform.h"
 #include "gpio_platform.h"
+#include "debug_print.h"
+#include "debug_blink.h"
 
 #define I2C_ADDR        0x77
 #define I2C_ID_REG_ADDR 0x00
 #define I2C_ID_REG_VAL  0x60
 
-// print a 32-bit value over UART as 8 hex digits — diagnostic only
-static void uart_print_hex32(uint8_t uart_num, uint32_t val) {
-    const char hex[] = "0123456789ABCDEF";
-    char buf[12];
-    buf[0] = '0'; buf[1] = 'x';
-    for (int i = 7; i >= 0; i--) {
-        buf[2 + (7 - i)] = hex[(val >> (i * 4)) & 0xF];
-    }
-    buf[10] = '\r';
-    buf[11] = '\n';
-    for (int i = 0; i < 12; i++) {
-        bm_uart_write_byte(uart_num, (uint8_t)buf[i]);
-    }
-}
 
 int main() {
     // LED setup
@@ -32,12 +20,7 @@ int main() {
     bm_systick_init();
 
     // 3 blinks — signals start of test
-    for (int i = 0; i < 3; i++) {
-        bm_gpio_put(25, true);
-        bm_systick_delay_ms(500);
-        bm_gpio_put(25, false);
-        bm_systick_delay_ms(500);
-    }
+    blink_n_times(3);
 
     // init UART for diagnostic output
     uint8_t uart_num;
@@ -48,10 +31,7 @@ int main() {
     bool result = bm_i2c_init(&i2c_num, I2C_MODE_STANDARD, 0, 1); // GP0/GP1
     if (!result) {
         // fast blink — init failed
-        while (1) {
-            bm_gpio_toggle(25);
-            bm_systick_delay_ms(1000);
-        }
+        blink_loop(50);
     }
 
     // attempt chip ID read
@@ -61,9 +41,10 @@ int main() {
     // print status and abort source regardless of result
     uint32_t status, abort_src;
     bm_i2c_get_status(i2c_num, &status, &abort_src);
-    uart_print_hex32(uart_num, status);
-    uart_print_hex32(uart_num, abort_src);
-    uart_print_hex32(uart_num, (uint32_t)buf[0]);
+    bm_debug_print_result(uart_num, result, "I2C write_read");
+    bm_debug_print_hex32(uart_num, status);
+    bm_debug_print_hex32(uart_num, abort_src);
+    bm_debug_print_hex32(uart_num, (uint32_t)buf[0]);
 
 
     if (result && buf[0] == I2C_ID_REG_VAL) {
@@ -76,9 +57,6 @@ int main() {
         }
     } else {
         // slow blink — read failed or wrong value
-        while (1) {
-            bm_gpio_toggle(25);
-            bm_systick_delay_ms(200);
-        }
+        blink_loop(1000);
     }
 }
