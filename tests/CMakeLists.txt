@@ -10,6 +10,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(BM_WARNING_FLAGS -Wall -Wextra -Werror)
 
 include_directories(${CMAKE_SOURCE_DIR}/../platform/rp2040/gpio)
+include_directories(${CMAKE_SOURCE_DIR}/../platform/rp2040/systick)
 include_directories(${CMAKE_SOURCE_DIR}/../SysTick)
 include_directories(${CMAKE_SOURCE_DIR}/../UART)
 include_directories(${CMAKE_SOURCE_DIR}/../I2C)

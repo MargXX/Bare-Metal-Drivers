@@ -10,7 +10,6 @@
  * To switch to processor clock: set SYST_CSR_CLKSOURCE_Msk in CSR and
  * update SYSTICK_TICKS_PER_MS to match your system clock frequency.
  *
- * Reference: RP2040 Datasheet, Sections 2.4.4, 2.4.5.1.1
  */
 
 #ifndef SYSTICK_H
@@ -20,10 +19,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-// ticks per millisecond — update if changing clock source
-// 1MHz external reference (default): 1000
-// 125MHz processor clock: 125000
-#define SYSTICK_TICKS_PER_MS    125000U
+#include "systick_platform.h"
+
+
 
 // returns false if error, true if functioned correctly
 

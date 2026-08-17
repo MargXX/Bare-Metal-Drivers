@@ -11,9 +11,18 @@ project(RP2040_Bare_Metal_Drivers)
 set(CMAKE_C_STANDARD 11)
 
 set(PLATFORM "rp2040")
+
+set(PLATFORM "rp2040" CACHE STRING "Target platform (rp2040, stm32g431)")
+
+set(BM_VALID_PLATFORMS rp2040 stm32g431)
+if(NOT PLATFORM IN_LIST BM_VALID_PLATFORMS)
+    message(FATAL_ERROR "Unknown PLATFORM '${PLATFORM}'. Valid options: ${BM_VALID_PLATFORMS}")
+endif()
+
 include_directories(${CMAKE_SOURCE_DIR}/platform/${PLATFORM})
 include_directories(${CMAKE_SOURCE_DIR}/platform/${PLATFORM}/gpio)
 include_directories(${CMAKE_SOURCE_DIR}/SysTick)
+include_directories(${CMAKE_SOURCE_DIR}/platform/${PLATFORM}/systick)
 include_directories(${CMAKE_SOURCE_DIR}/UART)
 include_directories(${CMAKE_SOURCE_DIR}/platform/${PLATFORM}/uart)
 include_directories(${CMAKE_SOURCE_DIR}/I2C)
@@ -43,20 +52,20 @@ function(bm_add_test_executable name)
 endfunction()
 
 bm_add_test_executable(gpio_test
-    SysTick/systick.c
+    platform/cortex-m/systick/systick.c
     platform/${PLATFORM}/gpio/gpio.c
     board/pico-devboard/gpio_test.c
 )
 
 bm_add_test_executable(uart_test
-    SysTick/systick.c
+    platform/cortex-m/systick/systick.c
     platform/${PLATFORM}/gpio/gpio.c
     platform/${PLATFORM}/uart/uart.c
     board/pico-devboard/uart_test.c
 )
 
 bm_add_test_executable(i2c_test
-    SysTick/systick.c
+    platform/cortex-m/systick/systick.c
     platform/${PLATFORM}/gpio/gpio.c
     platform/${PLATFORM}/i2c/i2c.c
     platform/${PLATFORM}/uart/uart.c
@@ -64,7 +73,7 @@ bm_add_test_executable(i2c_test
 )
 
 bm_add_test_executable(bmp390_test
-    SysTick/systick.c
+    platform/cortex-m/systick/systick.c
     platform/${PLATFORM}/gpio/gpio.c
     platform/${PLATFORM}/i2c/i2c.c
     drivers/bmp390/bmp390.c

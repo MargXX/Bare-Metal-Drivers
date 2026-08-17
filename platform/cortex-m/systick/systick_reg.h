@@ -13,6 +13,13 @@
 // Base address
 #define PPB_BASE 0xe0000000
 
+
+// SYST_CVR CURRENT field: 24-bit (bits[23:0]) per ARMv6-M (RP2040).
+// ARMv7-M (STM32G4) defines CURRENT as the full 32 bits, but RELOAD
+// is bits[23:0] on both architectures, so CURRENT never actually
+// holds a value wider than 24 bits in practice. Confirmed against
+// ARM DDI 0419E (ARMv6-M) and ARM DDI 0403E (ARMv7-M).
+
 // Register pointers 
 #define SYST_CSR     (*(volatile uint32_t *)(PPB_BASE + 0xE010UL)) // Control and Status
 #define SYST_RVR     (*(volatile uint32_t *)(PPB_BASE + 0xE014UL)) // Reload Value
