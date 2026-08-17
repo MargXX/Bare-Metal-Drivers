@@ -4,31 +4,27 @@
 
 A from-scratch bare-metal driver library in C for the Raspberry Pi RP2040. No vendor HAL is used; all peripheral configuration is written directly against the RP2040 datasheet.
 
-This driver stack is the foundation layer of a larger flight computer project: a custom PCB with a full application layer. Hardware-specific register details are isolated from the public API.
+This driver stack is the foundation layer of a larger flight computer project: a custom PCB with a full application layer. The repository is organized into portable, platform-specific, and board-specific tiers so that a second MCU target can be added without rewriting driver logic or public API contracts.
 
------
+---
 
 ## Drivers
 
-|Driver          |Status     |Notes                                                                                        |
-|----------------|-----------|---------------------------------------------------------------------------------------------|
-|GPIO            |Complete   |Verified on hardware. LED blink on GP25.                                                     |
-|SysTick         |Complete   |ISR-driven millisecond timing. 125MHz processor clock.                                       |
-|UART            |Complete   |Verified on hardware. TX confirmed via logic analyzer and serial monitor.                    |
-|I2C             |Complete   |All transaction functions verified on hardware. First sensor read (BMP390 CHIP_ID) confirmed.|
-|BMP390 (device) |Complete   |Verified on hardware: init, configure, soft reset, data-ready, forced and normal reads, float compensation. Ambient readings 100,764 Pa and 22 °C. Full host-side unit test coverage.|
-|LSM9DS1 (device)|Reassigned |Moved to the flight computer project                                                         |
-|SPI             |Reassigned |Moved to the flight computer project, with onboard flash logging                             |
-|W25Q128 (device)|Reassigned |Depends on SPI; moved with it                                                                |
-|STM32 port      |Planned    |Preparation for change in flight computer board. Expected repo tree reorganization soon for easier integration of platform drivers. |
+| Driver | Status | Notes |
+|---|---|---|
+| GPIO | Complete | Verified on hardware. LED blink on GP25. Platform-specific by design; see [Portability](#portability). |
+| SysTick | Complete | ISR-driven millisecond timing. 125 MHz processor clock. Verified portable across ARMv6-M and ARMv7-M; see [Portability](#portability). |
+| UART | Complete | Verified on hardware. TX confirmed via logic analyzer and serial monitor. |
+| I2C | Complete | All transaction functions verified on hardware. First sensor read (BMP390 CHIP_ID) confirmed. |
+| BMP390 (device) | Complete | Verified on hardware: init, configure, soft reset, data-ready, forced and normal reads, float compensation. Ambient readings 100,764 Pa and 22 °C. Full host-side unit test coverage. |
+| LSM9DS1 (device) | Reassigned | Moved to the flight computer project |
+| SPI | Reassigned | Moved to the flight computer project, with onboard flash logging |
+| W25Q128 (device) | Reassigned | Depends on SPI; moved with it |
+| STM32G431 port | Structurally prepared | Three-tier layout in place, `PLATFORM` selection validated, SysTick portability confirmed against both architecture reference manuals. No STM32 code written yet. |
 
-**Scope.** This repository covers the RP2040 peripherals above plus the BMP390
-barometer. The LSM9DS1 IMU, flash logging, and the hardware-in-the-loop harness
-are reassigned to the flight computer project, where the remaining device drivers
-use vendor HALs. SPI is the exception and is written from scratch, completing the
-transport layer this stack was designed around.
+**Scope.** This repository covers the RP2040 peripherals above plus the BMP390 barometer. The LSM9DS1 IMU, flash logging, and the hardware-in-the-loop harness are reassigned to the flight computer project, where the remaining device drivers use vendor HALs. SPI is the exception and is written from scratch, completing the transport layer this stack was designed around.
 
------
+---
 
 ## Project Structure
 
@@ -38,46 +34,55 @@ Bare-Metal-Drivers/
 │   └── workflows/
 │       └── build.yml
 ├── .gitignore
-├── CMakeLists.txt
+├── CMakeLists.txt              ARM project; PLATFORM selection + validation
 ├── pico_sdk_import.cmake
 ├── LICENSE
 ├── README.md
-├── Debug/
-│   ├── debug_blink.h
-│   ├── debug_blink.c
-│   ├── debug_print.h
-│   └── debug_print.c
-├── platform/
-│   └── rp2040/
-│       ├── gpio_platform.h
-│       ├── gpio_reg.h
-│       ├── systick_reg.h
-│       ├── uart_reg.h
-│       ├── resets_reg.h
-│       ├── i2c_platform.h
-│       └── i2c_reg.h
-├── GPIO/
-│   ├── gpio.h
-│   ├── gpio.c
-│   └── gpio_test.c
-├── SysTick/
+│
+├── include/                    Tier 1: portable public API
 │   ├── systick.h
-│   └── systick.c
-├── UART/
 │   ├── uart.h
-│   ├── uart.c
-│   └── uart_test.c
-├── I2C/
 │   ├── i2c.h
-│   ├── i2c.c
-│   └── i2c_test.c
-├── BMP390/
-│   ├── bmp390.h
-│   ├── bmp390_reg.h
-│   ├── bmp390_platform.h
-│   ├── bmp390.c
-│   └── bmp390_test.c
-└── tests/
+│   └── bmp390.h
+│
+├── drivers/                    Tier 1: portable device logic
+│   └── bmp390/
+│       ├── bmp390.c            byte-identical across MCU targets
+│       ├── bmp390_reg.h        chip register map (internal)
+│       └── bmp390_chip.h       caller-facing chip facts
+│
+├── platform/                   Tier 2: vendor-specific implementation
+│   ├── cortex-m/
+│   │   └── systick/
+│   │       ├── systick.c       shared across any Cortex-M
+│   │       └── systick_reg.h
+│   └── rp2040/
+│       ├── resets_reg.h        shared across RP2040 peripherals
+│       ├── gpio/
+│       │   ├── gpio.h          no portable contract; see Portability
+│       │   ├── gpio.c
+│       │   ├── gpio_reg.h
+│       │   └── gpio_platform.h
+│       ├── uart/
+│       │   ├── uart.c
+│       │   └── uart_reg.h
+│       ├── i2c/
+│       │   ├── i2c.c
+│       │   ├── i2c_reg.h
+│       │   └── i2c_platform.h
+│       └── systick/
+│           └── systick_platform.h    SYSTICK_TICKS_PER_MS
+│
+├── board/                      Tier 3: physical wiring
+│   └── pico-devboard/
+│       ├── gpio_test.c
+│       ├── uart_test.c
+│       ├── i2c_test.c
+│       ├── bmp390_test.c
+│       ├── debug_blink.{h,c}
+│       └── debug_print.{h,c}
+│
+└── tests/                      Off-target suite; separate CMake project
     ├── CMakeLists.txt
     ├── bmp390_test_host.c
     ├── bmp390_i2c_fake.c
@@ -88,23 +93,53 @@ Bare-Metal-Drivers/
         └── unity_internals.h
 ```
 
-Each driver lives in its own folder with a portable public API header and an implementation file. Hardware-specific register maps and constants live under `platform/rp2040/` and are included only by the driver's own `.c` file. On-target test files contain `main()` and produce a standalone flashable binary.
+### The three tiers
 
-`_platform.h` files exist only where there are public constants that callers need to pass into driver functions. Drivers with no caller-facing platform constants do not have one.
+The layout separates code by *what would have to change on a port*, not by peripheral name.
 
-`resets_reg.h` is shared across peripheral drivers. It is the single source for the RP2040 RESETS block and is included directly by each driver's `.c` file as needed.
+**`include/` and `drivers/` are portable.** Nothing here references a specific MCU. `include/` holds only the public API contracts that keep the same signature on every target. `drivers/bmp390/` holds device logic that reaches hardware exclusively through those contracts, which is what makes it portable and what makes off-target unit testing cheap.
 
-Device drivers place their `_reg.h` in the device folder rather than `platform/rp2040/`, because it describes the chip's internal register map, which is the same over any host MCU or bus. Only the I2C/SPI layer underneath changes on a port.
+**`platform/` is vendor-specific.** Selected at link time via `-DPLATFORM=<mcu>`. The `cortex-m/` subtree holds code shared by any Cortex-M core regardless of silicon vendor; `rp2040/` holds code specific to this chip. Peripherals get their own subfolders so that a second target does not produce a flat directory of thirty files.
 
-`tests/` holds the off-target test suite. It is a separate CMake project built with the native compiler rather than the ARM cross-compiler. See [Testing](#testing).
+**`board/` is wiring-specific.** Which pin drives the LED, which I2C bus the sensor sits on, what baud the serial monitor expects. These are facts about one physical assembly, not about the MCU family. A second board running the same MCU gets its own sibling directory.
 
------
+### Header conventions
+
+| File | Audience | Contents |
+|---|---|---|
+| `include/xxx.h` | Anyone using the driver | Portable public API |
+| `platform/<mcu>/xxx/xxx_reg.h` | `xxx.c` only | Register structs, base addresses, masks, peripheral pointer tables |
+| `platform/<mcu>/xxx/xxx_platform.h` | Callers | Constants callers pass into driver functions |
+| `drivers/<device>/xxx_reg.h` | `xxx.c` only | Chip register map, host-independent |
+| `drivers/<device>/xxx_chip.h` | Callers | Caller-facing chip facts (I2C address, chip ID) |
+| `board/<board>/*` | Nothing else | On-target mains and presentation helpers |
+| `tests/*` | Host compiler only | Off-target unit tests and fakes; never cross-compiled, never flashed |
+
+`_platform.h` files exist only where there are constants callers must pass in. Drivers with no caller-facing platform constants do not have one.
+
+`resets_reg.h` sits flat in `platform/rp2040/` rather than in a peripheral subfolder, because both UART and I2C write to the RESETS block. It is the single source for that block and is included directly by each `.c` that needs it.
+
+Device `_reg.h` files live in `drivers/<device>/` rather than under `platform/`, because they describe the sensor's internal register map, which is identical regardless of host MCU or bus. Only the transport layer underneath changes on a port.
+
+Implementation files include every header whose symbols they use directly, rather than relying on transitive includes through a public header. This costs nothing at compile time (header guards) and prevents a silent break when a public header's own includes change.
+
+---
+
+## Portability
+
+Three findings from evaluating what actually ports to the STM32G431 target.
+
+**GPIO has no portable contract.** RP2040 uses flat pin numbering with a function-select field; STM32 uses port + pin + alternate-function. Not unifiable behind one signature, so `gpio.h` lives in `platform/rp2040/gpio/`, not `include/`, unlike `uart.h`, `i2c.h`, and `systick.h`.
+ 
+**SysTick is portable, verified against ARM DDI 0419E (ARMv6-M) and ARM DDI 0403E (ARMv7-M).** `SYST_CSR.CLKSOURCE` (bit 2) has the same definition on both architectures, but the "external reference clock" it selects is vendor-wired differently: RP2040 ties it to a fixed 1 MHz watchdog tick, STM32 ties it to AHB/8. This driver always sets `CLKSOURCE=1`, so it never touches that divergence. `SYST_CVR.CURRENT` is bits[23:0] on ARMv6-M and bits[31:0] on ARMv7-M, a real difference, but `SYST_RVR.RELOAD` is bits[23:0] on both, so `CURRENT` never holds more than 24 bits in practice either way. On this basis `systick.c`/`systick_reg.h` sit in `platform/cortex-m/systick/`; the one chip-specific value, `SYSTICK_TICKS_PER_MS`, is split into `platform/rp2040/systick/systick_platform.h`.
+ 
+**Platform selection is validated, not assumed.** `PLATFORM` is a CMake cache variable checked against a whitelist (`rp2040`, `stm32g431`); an unrecognized value fails the configure with `FATAL_ERROR` rather than silently building against an empty include path.
+
+---
 
 ## Building
 
 ### Prerequisites
-
-Install dependencies:
 
 ```bash
 sudo apt install -y git cmake gcc-arm-none-eabi libnewlib-arm-none-eabi \
@@ -140,6 +175,12 @@ cmake --build build --target uart_test
 
 Output is one `.elf` per target in `build/`. UF2 generation is disabled; flashing is done over SWD with OpenOCD.
 
+To select a platform explicitly (only `rp2040` is implemented today):
+
+```bash
+cmake -B build -DPICO_BOARD=pico -DPLATFORM=rp2040
+```
+
 ### Build and run host tests
 
 The host suite is a separate CMake project under `tests/` with no toolchain file, so it configures with the system compiler. It does not require the Pico SDK or the ARM toolchain.
@@ -151,12 +192,6 @@ ctest --test-dir tests/build --output-on-failure
 ```
 
 `-S` and `--test-dir` are required. Without them, CMake and CTest resolve paths against the current working directory and pick up the root ARM project instead.
-
-To see per-test output, run the binary directly:
-
-```bash
-./tests/build/bmp390_test_host
-```
 
 ### Flash
 
@@ -174,19 +209,21 @@ openocd -f interface/cmsis-dap.cfg -f target/rp2040.cfg \
 screen /dev/ttyACM0 115200
 ```
 
------
+---
 
 ## Testing
 
 Verification is structured across three layers.
 
-|Layer                         |Status     |Scope                                                                          |
-|------------------------------|-----------|-------------------------------------------------------------------------------|
-|1. Host-side unit tests       |Complete   |BMP390 driver logic, compiled and run natively. No hardware.                   |
-|2. Hardware-in-the-loop (HIL) |Reassigned |Moved to the flight computer project.                                          |
-|3. Continuous integration     |Complete   |Cross-compile and host test suite on every push.                               |
+| Layer | Status | Scope |
+|---|---|---|
+| 1. Host-side unit tests | Complete | BMP390 driver logic, compiled and run natively. No hardware. |
+| 2. Hardware-in-the-loop (HIL) | Reassigned | Automated pytest harness moved to the flight computer project. |
+| 3. Continuous integration | Complete | Cross-compile and host test suite on every push. |
 
-Peripheral drivers (GPIO, UART, I2C) are verified on hardware through their on-target test binaries. Layer 1 covers the BMP390 device driver.
+Peripheral drivers (GPIO, UART, I2C) are verified on hardware through their on-target test binaries in `board/pico-devboard/`, observed manually with a logic analyzer and serial monitor. Layer 1 covers the BMP390 device driver.
+
+Manual hardware verification is not the same thing as Layer 2. Layer 2 refers specifically to an automated harness that drives the board and asserts on its output without a human watching an LED. That remains reassigned.
 
 ### SysTick
 
@@ -195,6 +232,8 @@ SysTick has no on-target test binary. Absolute tick accuracy requires an externa
 ### Layer 1: host-side unit tests
 
 `tests/bmp390_test_host.c` includes `bmp390.c` directly, placing both in a single translation unit so the file's internal `static` helpers are reachable from the test. It links against [Unity](https://github.com/ThrowTheSwitch/Unity), vendored under `tests/unity/`.
+
+Because the driver source is pulled in by `#include`, it must not also appear in the target's source list. Listing it in both places produces a multiple-definition link error for every public function in the driver.
 
 The driver reaches hardware only through the `bm_i2c_*` and `bm_systick_*` public APIs, which makes those APIs link-time substitution points. The host build supplies its own implementations in place of the real drivers.
 
@@ -210,10 +249,6 @@ Two mechanisms make failure paths reachable. A transaction counter lets a test s
 
 The fake's model of device behaviour is itself derived from the datasheet. The reset-verification test therefore covers the mechanism, that the driver detects a reset which fails to restore defaults, but not the value, since it passes for any value the fake and the driver agree on. Values encoded in the fake are confirmed against hardware separately.
 
-### Layer 2: hardware-in-the-loop
-
-A `pytest` harness driving the RP2040 over UART was scoped for this repo and reassigned to the flight computer project.
-
 ### Layer 3: continuous integration
 
 `.github/workflows/build.yml` runs two jobs on every push:
@@ -227,7 +262,7 @@ The jobs use different toolchains and do not depend on each other, so they run i
 
 Planned for the flight computer stage: a replay harness that feeds 25 hours of logged flight data, including a 12 G ascent, back through the stack for fault injection.
 
------
+---
 
 ## Datasheet Discrepancies
 
@@ -235,10 +270,10 @@ Values observed on hardware that do not match the reference documentation.
 
 ### BMP390 `OSR` (0x1C) power-on value
 
-|                                    | Value  | Decode                                     |
-|------------------------------------|--------|--------------------------------------------|
-| Datasheet Table 25, Default Value  | `0x02` | `osr_p` ×4, `osr_t` ×1                     |
-| Observed on hardware               | `0x00` | `osr_p` ×1, `osr_t` ×1                     |
+| | Value | Decode |
+|---|---|---|
+| Datasheet Table 25, Default Value | `0x02` | `osr_p` ×4, `osr_t` ×1 |
+| Observed on hardware | `0x00` | `osr_p` ×1, `osr_t` ×1 |
 
 Reference: Bosch BMP390 datasheet, BST-BMP390-DS002-07, Revision 1.7 (03/2021), Table 25 "BMP390 memory map".
 
@@ -253,7 +288,7 @@ The observed values are named constants in `bmp390_reg.h`, annotated with their 
 
 The discrepancy surfaced during hardware re-verification after the reset read-back was added to `bm_bmp390_soft_reset`. Because `bm_bmp390_init` calls that function, the wrong constant failed initialization and every function guarded on `initialized`. The host suite did not detect it: the fake restored the same documented value the driver asserted.
 
------
+---
 
 ## Known Limitations
 
@@ -262,24 +297,24 @@ The discrepancy surfaced during hardware re-verification after the reset read-ba
 - The polling loops in `bm_bmp390_soft_reset` and `bm_bmp390_read_forced` do not distinguish a persistent bus fault from a slow sensor. Either resolves as a timeout rather than an immediate failure.
 - `bm_bmp390_init` does not populate `dev->cfg`. That field is indeterminate until `bm_bmp390_configure` returns `true`, and `configured` is its validity flag. Every driver path that reads `cfg` checks `configured` first, so no driver code can observe an indeterminate value, but callers must not read it before configuring.
 - SysTick's absolute tick accuracy is not asserted by any automated test. See [SysTick](#systick).
+- `include/systick.h` includes `systick_platform.h`, which is platform-specific, so the portable header is not currently free of platform dependencies. `SYSTICK_TICKS_PER_MS` is a build-configuration constant rather than something callers pass in, so it does not fit the stated `_platform.h` rule. Open.
+- Only `rp2040` is implemented under `platform/`. `stm32g431` is accepted by the `PLATFORM` validator but has no source behind it yet.
 
------
+---
 
 ## Notes
 
 - `bm_` prefix is used on all driver functions to avoid linker collisions with the Pico SDK
 - `pico_runtime` is used instead of `pico_stdlib` to avoid name conflicts with driver functions
 - The Pico SDK remaps `SysTick_Handler` to `isr_systick`, so `isr_systick` is the handler name
-- `pico_runtime` sets the system clock to 125MHz on startup, so `SYSTICK_TICKS_PER_MS` is set to `125000`
-- `pico_runtime` also configures `clk_peri` to 125MHz at startup, so no explicit clock enable is needed in peripheral init
+- `pico_runtime` sets the system clock to 125 MHz on startup, so `SYSTICK_TICKS_PER_MS` is set to `125000`
+- `pico_runtime` also configures `clk_peri` to 125 MHz at startup, so no explicit clock enable is needed in peripheral init
 - Static memory allocation is used throughout; no `malloc`/`free`
-- The `platform/rp2040/` structure keeps register-level details out of driver logic, so switching targets requires a new `platform/` directory and a one-line CMake change (`set(PLATFORM "rp2040")`)
-- Device driver `_reg.h` files live in the device folder rather than `platform/rp2040/`, because the sensor register map is chip-specific rather than host-specific and does not change on a port
 - BMP390 compensation uses `float` rather than `double`, matching Bosch's reference implementation. The smallest coefficient scale (`2^-65`) is within float's range, and the terms it feeds are multiplied by large raw values before contributing to the result
 - The I2C test double is named for the device rather than the bus. It encodes BMP390 addressing and reset behaviour, so a second device driver gets its own fake rather than sharing a generalized one
 - `bm_bmp390_read_forced` rejects a call made while `cfg.mode` is `NORMAL`. Triggering a forced conversion drops the device into sleep afterward, which would leave the handle claiming a mode the sensor is no longer in
 
------
+---
 
 ## License
 
