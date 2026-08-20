@@ -17,9 +17,9 @@ This driver stack is the foundation layer of a larger flight computer project: a
 | UART | Complete | Verified on hardware. TX confirmed via logic analyzer and serial monitor. |
 | I2C | Complete | All transaction functions verified on hardware. First sensor read (BMP390 CHIP_ID) confirmed. |
 | BMP390 (device) | Complete | Verified on hardware: init, configure, soft reset, data-ready, forced and normal reads, float compensation. Ambient readings 100,764 Pa and 22 °C. Full host-side unit test coverage. |
-| LSM9DS1 (device) | Reassigned | Moved to the flight computer project |
-| SPI | Reassigned | Moved to the flight computer project, with onboard flash logging |
-| W25Q128 (device) | Reassigned | Depends on SPI; moved with it |
+| LSM9DS1 (device) | Deferred | Moved to the flight computer project |
+| SPI | Deferred | Moved to the flight computer project, with onboard flash logging |
+| W25Q128 (device) | Deferred | Depends on SPI; moved with it |
 | STM32G431 port | Structurally prepared | Three-tier layout in place, `PLATFORM` selection validated, SysTick portability confirmed against both architecture reference manuals. No STM32 code written yet. |
 
 **Scope.** This repository covers the RP2040 peripherals above plus the BMP390 barometer. The LSM9DS1 IMU, flash logging, and the hardware-in-the-loop harness are reassigned to the flight computer project, where the remaining device drivers use vendor HALs. SPI is the exception and is written from scratch, completing the transport layer this stack was designed around.
