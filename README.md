@@ -260,7 +260,7 @@ The jobs use different toolchains and do not depend on each other, so they run i
 
 ### Flight simulation and replay
 
-Planned for the flight computer stage: a replay harness that feeds 25 hours of logged flight data, including a 12 G ascent, back through the stack for fault injection.
+Planned for the flight computer stage: a replay harness that feeds 25 hours of logged flight data, including a 16+ G ascent, back through the stack for fault injection.
 
 ---
 
