@@ -218,7 +218,7 @@ Verification is structured across three layers.
 | Layer | Status | Scope |
 |---|---|---|
 | 1. Host-side unit tests | Complete | BMP390 driver logic, compiled and run natively. No hardware. |
-| 2. Hardware-in-the-loop (HIL) | Reassigned | Automated pytest harness moved to the flight computer project. |
+| 2. Hardware-in-the-loop (HIL) | Deferred | Automated pytest harness moved to the flight computer project. |
 | 3. Continuous integration | Complete | Cross-compile and host test suite on every push. |
 
 Peripheral drivers (GPIO, UART, I2C) are verified on hardware through their on-target test binaries in `board/pico-devboard/`, observed manually with a logic analyzer and serial monitor. Layer 1 covers the BMP390 device driver.
