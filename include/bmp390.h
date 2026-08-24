@@ -19,8 +19,7 @@
  * bus (e.g. one at 0x76 and one at 0x77) with no driver changes.
  *
  * COMPENSATION: this build uses FLOATING-POINT compensation (Bosch float
- * formula). It is readable and easier to verify against the datasheet, but the
- * RP2040 (Cortex-M0+) has no FPU, so the math is emitted as software float.
+ * formula). It is readable and easier to verify against the datasheet.
  *   >>> PORT-LATER NOTE: a fixed-point (int64) version avoids software float
  *   and gives deterministic timing on the FPU-less M0+. 
  *
@@ -42,14 +41,13 @@
 // convention). Output values are written through caller-supplied pointers.
 
 
-/* ------------------------------------------------------------------ */
-/* Configuration enums                                                 */
-/*                                                                     */
-/* Enum VALUES mirror the datasheet field encodings so bmp390.c can    */
-/* shift them straight into the register field. Verify each encoding   */
-/* against the section noted — if you'd rather look them up yourself,  */
-/* blank the values here and confirm from the datasheet.               */
-/* ------------------------------------------------------------------ */
+// ------------------------------------------------------------------ 
+// Configuration enums                                                
+//                                                                    
+// Enum VALUES mirror the datasheet field encodings so bmp390.c can   
+// shift them straight into the register field. Verify each encoding  
+// against the section noted
+// ------------------------------------------------------------------
 
 // Power mode — PWR_CTRL.mode (DS §4.3.17)
 typedef enum {
@@ -58,7 +56,7 @@ typedef enum {
     BMP390_MODE_NORMAL = 0x03,
 } bmp390_mode_t;
 
-// Oversampling — OSR.osr_p / OSR.osr_t (DS §4.3.18). Same encoding for both.
+// Oversampling — OSR.osr_p / OSR.osr_t 
 typedef enum {
     BMP390_OSR_X1  = 0x00,   // no oversampling
     BMP390_OSR_X2  = 0x01,
@@ -68,8 +66,7 @@ typedef enum {
     BMP390_OSR_X32 = 0x05,
 } bmp390_osr_t;
 
-// Output data rate — ODR.odr_sel (DS §4.3.19/§4.3.20). Subsampling = 2^value;
-// valid 0..17, higher value -> lower rate. Common picks below; add as needed.
+// Output data rate — ODR.odr_sel 
 typedef enum {
     BMP390_ODR_200_HZ  = 0x00,
     BMP390_ODR_100_HZ  = 0x01,
