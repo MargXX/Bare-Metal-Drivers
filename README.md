@@ -2,7 +2,9 @@
 
 ![CI](https://github.com/MargXX/Bare-Metal-Drivers/actions/workflows/build.yml/badge.svg)
 
-A from-scratch bare-metal driver library in C for the Raspberry Pi RP2040. No vendor HAL is used; all peripheral configuration is written directly against the RP2040 datasheet.
+A from-scratch bare-metal driver library in C for ARM Cortex-M. No vendor HAL is used; all peripheral configuration is written directly against the chip datasheet.
+
+The RP2040 driver stack is complete and hardware-verified. A second target, the STM32G431RB (Cortex-M4F), is in progress: its startup infrastructure is hand-written and boots on hardware, with peripheral drivers still to come.
 
 This driver stack is the foundation layer of a larger flight computer project: a custom PCB with a full application layer. The repository is organized into portable, platform-specific, and board-specific tiers so that a second MCU target can be added without rewriting driver logic or public API contracts.
 
@@ -17,9 +19,21 @@ This driver stack is the foundation layer of a larger flight computer project: a
 | UART | Complete | Verified on hardware. TX confirmed via logic analyzer and serial monitor. |
 | I2C | Complete | All transaction functions verified on hardware. First sensor read (BMP390 CHIP_ID) confirmed. |
 | BMP390 (device) | Complete | Verified on hardware: init, configure, soft reset, data-ready, forced and normal reads, float compensation. Ambient readings 100,764 Pa and 22 °C. Full host-side unit test coverage. |
-| SPI | Deferred | Moved to the flight computer project, with onboard flash logging |
-| W25Q128 (device) | Deferred | Depends on SPI; moved with it |
-| STM32G431 port | Structurally prepared | Three-tier layout in place, `PLATFORM` selection validated, SysTick portability confirmed against both architecture reference 
+| SPI | Deferred | Moved to the flight computer project, with onboard flash logging. |
+| W25Q128 (device) | Deferred | Depends on SPI; moved with it. |
+
+All of the above target the RP2040.
+
+### STM32G431RB port
+
+| Component | Status | Notes |
+|---|---|---|
+| Linker script | Complete | Memory map written from the datasheet: 128K flash, SRAM1/SRAM2/CCM. |
+| Vector table and reset handler | Complete | Hand-written in C. All 102 device IRQ slots stubbed with weak aliases; ordering cross-checked against ST's own startup file. |
+| CMake toolchain file | Complete | Cortex-M4F, hard float ABI, separate from the RP2040 build. |
+| Peripheral drivers | Not started | — |
+
+Verified end to end: build, flash over SWD, and an LED driven by direct RCC and GPIO register writes on real hardware. Clock tree configuration is not yet written; the chip runs on its HSI16 reset default.
 
 ---
 
@@ -35,6 +49,9 @@ Bare-Metal-Drivers/
 ├── pico_sdk_import.cmake
 ├── LICENSE
 ├── README.md
+│
+├── cmake/
+│   └── stm32g4-toolchain.cmake     cross-compile settings for the STM32 target
 │
 ├── include/                    Tier 1: portable public API
 │   ├── systick.h
@@ -53,31 +70,40 @@ Bare-Metal-Drivers/
 │   │   └── systick/
 │   │       ├── systick.c       shared across any Cortex-M
 │   │       └── systick_reg.h
-│   └── rp2040/
-│       ├── resets_reg.h        shared across RP2040 peripherals
-│       ├── gpio/
-│       │   ├── gpio.h          no portable contract; see Portability
-│       │   ├── gpio.c
-│       │   ├── gpio_reg.h
-│       │   └── gpio_platform.h
-│       ├── uart/
-│       │   ├── uart.c
-│       │   └── uart_reg.h
-│       ├── i2c/
-│       │   ├── i2c.c
-│       │   ├── i2c_reg.h
-│       │   └── i2c_platform.h
-│       └── systick/
-│           └── systick_platform.h    SYSTICK_TICKS_PER_MS
+│   ├── rp2040/
+│   │   ├── resets_reg.h        shared across RP2040 peripherals
+│   │   ├── gpio/
+│   │   │   ├── gpio.h          no portable contract; see Portability
+│   │   │   ├── gpio.c
+│   │   │   ├── gpio_reg.h
+│   │   │   └── gpio_platform.h
+│   │   ├── uart/
+│   │   │   ├── uart.c
+│   │   │   └── uart_reg.h
+│   │   ├── i2c/
+│   │   │   ├── i2c.c
+│   │   │   ├── i2c_reg.h
+│   │   │   └── i2c_platform.h
+│   │   └── systick/
+│   │       └── systick_platform.h    SYSTICK_TICKS_PER_MS
+│   └── stm32g4/
+│       ├── cmsis/              vendored, unmodified vendor headers
+│       │   ├── core/Include/       ARM CMSIS-Core
+│       │   └── device/             ST CMSIS device headers
+│       └── startup/
+│           ├── stm32g431rb.ld
+│           └── startup_stm32g431rb.c
 │
 ├── board/                      Tier 3: physical wiring
-│   └── pico-devboard/
-│       ├── gpio_test.c
-│       ├── uart_test.c
-│       ├── i2c_test.c
-│       ├── bmp390_test.c
-│       ├── debug_blink.{h,c}
-│       └── debug_print.{h,c}
+│   ├── pico-devboard/
+│   │   ├── gpio_test.c
+│   │   ├── uart_test.c
+│   │   ├── i2c_test.c
+│   │   ├── bmp390_test.c
+│   │   ├── debug_blink.{h,c}
+│   │   └── debug_print.{h,c}
+│   └── nucleo-g431rb/
+│       └── blink_test.c
 │
 └── tests/                      Off-target suite; separate CMake project
     ├── CMakeLists.txt
@@ -96,9 +122,13 @@ The layout separates code by *what would have to change on a port*, not by perip
 
 **`include/` and `drivers/` are portable.** Nothing here references a specific MCU. `include/` holds only the public API contracts that keep the same signature on every target. `drivers/bmp390/` holds device logic that reaches hardware exclusively through those contracts, which is what makes it portable and what makes off-target unit testing cheap.
 
-**`platform/` is vendor-specific.** Selected at link time via `-DPLATFORM=<mcu>`. The `cortex-m/` subtree holds code shared by any Cortex-M core regardless of silicon vendor; `rp2040/` holds code specific to this chip. Peripherals get their own subfolders so that a second target does not produce a flat directory of thirty files.
+**`platform/` is vendor-specific.** Selected at link time via `-DPLATFORM=<mcu>`. The `cortex-m/` subtree holds code shared by any Cortex-M core regardless of silicon vendor; `rp2040/` and `stm32g4/` hold code specific to those chips. Peripherals get their own subfolders so that a second target does not produce a flat directory of thirty files.
 
 **`board/` is wiring-specific.** Which pin drives the LED, which I2C bus the sensor sits on, what baud the serial monitor expects. These are facts about one physical assembly, not about the MCU family. A second board running the same MCU gets its own sibling directory.
+
+A `startup/` subfolder exists under `stm32g4/` and not under `rp2040/`, because that layer is hand-written on STM32 and supplied by `pico_runtime` on the RP2040. The folder is present where the code is.
+
+Vendored vendor headers sit under `platform/<mcu>/cmsis/`, split by upstream (ARM for the core headers, ST for the device headers) and kept unmodified. They provide register addresses and bitfield names only; every register value written by this project is chosen against the reference manual.
 
 ### Header conventions
 
@@ -107,6 +137,7 @@ The layout separates code by *what would have to change on a port*, not by perip
 | `include/xxx.h` | Anyone using the driver | Portable public API |
 | `platform/<mcu>/xxx/xxx_reg.h` | `xxx.c` only | Register structs, base addresses, masks, peripheral pointer tables |
 | `platform/<mcu>/xxx/xxx_platform.h` | Callers | Constants callers pass into driver functions |
+| `platform/<mcu>/startup/*` | Nothing else | Boot infrastructure; runs before `main` |
 | `drivers/<device>/xxx_reg.h` | `xxx.c` only | Chip register map, host-independent |
 | `drivers/<device>/xxx_chip.h` | Callers | Caller-facing chip facts (I2C address, chip ID) |
 | `board/<board>/*` | Nothing else | On-target mains and presentation helpers |
@@ -124,13 +155,17 @@ Implementation files include every header whose symbols they use directly, rathe
 
 ## Portability
 
-Three findings from evaluating what actually ports to the STM32G431 target.
+Findings from evaluating what actually ports between the two targets.
 
 **GPIO has no portable contract.** RP2040 uses flat pin numbering with a function-select field; STM32 uses port + pin + alternate-function. Not unifiable behind one signature, so `gpio.h` lives in `platform/rp2040/gpio/`, not `include/`, unlike `uart.h`, `i2c.h`, and `systick.h`.
- 
+
 **SysTick is portable, verified against ARM DDI 0419E (ARMv6-M) and ARM DDI 0403E (ARMv7-M).** `SYST_CSR.CLKSOURCE` (bit 2) has the same definition on both architectures, but the "external reference clock" it selects is vendor-wired differently: RP2040 ties it to a fixed 1 MHz watchdog tick, STM32 ties it to AHB/8. This driver always sets `CLKSOURCE=1`, so it never touches that divergence. `SYST_CVR.CURRENT` is bits[23:0] on ARMv6-M and bits[31:0] on ARMv7-M, a real difference, but `SYST_RVR.RELOAD` is bits[23:0] on both, so `CURRENT` never holds more than 24 bits in practice either way. On this basis `systick.c`/`systick_reg.h` sit in `platform/cortex-m/systick/`; the one chip-specific value, `SYSTICK_TICKS_PER_MS`, is split into `platform/rp2040/systick/systick_platform.h`.
- 
-**Platform selection is validated, not assumed.** `PLATFORM` is a CMake cache variable checked against a whitelist (`rp2040`, `stm32g431`); an unrecognized value fails the configure with `FATAL_ERROR` rather than silently building against an empty include path.
+
+**Startup infrastructure does not port and is not meant to.** The RP2040 build uses the Pico SDK's second-stage bootloader, linker script, and `pico_runtime`. The STM32 build uses a hand-written linker script, vector table, and reset handler, because no equivalent is being taken from ST. Both are `platform/` concerns and neither is claimed as shared.
+
+**Platform selection is validated, not assumed.** `PLATFORM` is a CMake cache variable checked against a whitelist (`rp2040`, `stm32g4`); an unrecognized value fails the configure with `FATAL_ERROR` rather than silently building against an empty include path.
+
+**Each target gets its own build directory.** `CMAKE_TOOLCHAIN_FILE` must be set before `project()` and is fixed in a build directory's cache at first configure, so one directory cannot serve two toolchains.
 
 ---
 
@@ -143,7 +178,7 @@ sudo apt install -y git cmake gcc-arm-none-eabi libnewlib-arm-none-eabi \
     build-essential libstdc++-arm-none-eabi-newlib python3
 ```
 
-Clone the Pico SDK as a sibling to this repo. Submodules are not initialized: only the second-stage bootloader, the linker script, and `pico_runtime` are used, so TinyUSB and btstack are not required. The clone is pinned to a release tag to match CI.
+For the RP2040 target, clone the Pico SDK as a sibling to this repo. Submodules are not initialized: only the second-stage bootloader, the linker script, and `pico_runtime` are used, so TinyUSB and btstack are not required. The clone is pinned to a release tag to match CI.
 
 ```bash
 cd ~/Desktop/Projects   # or wherever this repo lives
@@ -157,26 +192,31 @@ echo 'export PICO_SDK_PATH=/path/to/pico-sdk' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-### Compile firmware (ARM)
+The STM32 target needs no SDK. Its CMSIS headers are vendored in this repository.
+
+### Compile firmware: RP2040
 
 ```bash
-cmake -B build -DPICO_BOARD=pico
-cmake --build build
+cmake -B build-rp2040 -DPICO_BOARD=pico -DPLATFORM=rp2040
+cmake --build build-rp2040
 ```
 
 Targets: `gpio_test`, `uart_test`, `i2c_test`, `bmp390_test`. To build a single one:
 
 ```bash
-cmake --build build --target uart_test
+cmake --build build-rp2040 --target uart_test
 ```
 
-Output is one `.elf` per target in `build/`. UF2 generation is disabled; flashing is done over SWD with OpenOCD.
+Output is one `.elf` per target. UF2 generation is disabled; flashing is done over SWD with OpenOCD.
 
-To select a platform explicitly (only `rp2040` is implemented today):
+### Compile firmware: STM32G431RB
 
 ```bash
-cmake -B build -DPICO_BOARD=pico -DPLATFORM=rp2040
+cmake -B build-stm32g4 -DPLATFORM=stm32g4
+cmake --build build-stm32g4
 ```
+
+Target: `blink_test`.
 
 ### Build and run host tests
 
@@ -192,13 +232,25 @@ ctest --test-dir tests/build --output-on-failure
 
 ### Flash
 
-Using OpenOCD with a CMSIS-DAP debugger, from the project root:
+Using OpenOCD with a CMSIS-DAP debugger, from the project root.
+
+RP2040:
 
 ```bash
 openocd -f interface/cmsis-dap.cfg -f target/rp2040.cfg \
   -c "adapter speed 5000" \
-  -c "program build/bmp390_test.elf verify reset exit"
+  -c "program build-rp2040/bmp390_test.elf verify reset exit"
 ```
+
+STM32G431RB:
+
+```bash
+openocd -f interface/cmsis-dap.cfg -f target/stm32g4x.cfg \
+  -c "adapter speed 5000" \
+  -c "program build-stm32g4/blink_test.elf verify reset exit"
+```
+
+On a Nucleo-64 board, using an external probe requires JP1 (STLK_RST) fitted, which holds the onboard ST-LINK in reset. SWDIO and SWCLK are on CN7 pins 13 and 15.
 
 ### Monitor serial output
 
@@ -253,7 +305,7 @@ The fake's model of device behaviour is itself derived from the datasheet. The r
 - **RP2040 Build**: installs the ARM toolchain, clones the pinned SDK, and cross-compiles every target.
 - **Host Unit Tests**: configures the `tests/` project with the native compiler and runs the Layer 1 suite through CTest.
 
-The jobs use different toolchains and do not depend on each other, so they run in parallel and report separately.
+The jobs use different toolchains and do not depend on each other, so they run in parallel and report separately. The STM32 target is not yet built in CI.
 
 ### Flight simulation and replay
 
@@ -295,7 +347,8 @@ The discrepancy surfaced during hardware re-verification after the reset read-ba
 - `bm_bmp390_init` does not populate `dev->cfg`. That field is indeterminate until `bm_bmp390_configure` returns `true`, and `configured` is its validity flag. Every driver path that reads `cfg` checks `configured` first, so no driver code can observe an indeterminate value, but callers must not read it before configuring.
 - SysTick's absolute tick accuracy is not asserted by any automated test. See [SysTick](#systick).
 - `include/systick.h` includes `systick_platform.h`, which is platform-specific, so the portable header is not currently free of platform dependencies. `SYSTICK_TICKS_PER_MS` is a build-configuration constant rather than something callers pass in, so it does not fit the stated `_platform.h` rule. Open.
-- Only `rp2040` is implemented under `platform/`. `stm32g431` is accepted by the `PLATFORM` validator but has no source behind it yet.
+- The STM32G431RB target has startup infrastructure and a verified boot path, but no peripheral drivers. Nothing under `include/` or `drivers/` has been exercised on it yet.
+- The STM32 build runs on the HSI16 reset clock. No clock tree configuration is written, so `SYSTICK_TICKS_PER_MS` has no STM32 equivalent yet.
 
 ---
 
@@ -306,6 +359,8 @@ The discrepancy surfaced during hardware re-verification after the reset read-ba
 - The Pico SDK remaps `SysTick_Handler` to `isr_systick`, so `isr_systick` is the handler name
 - `pico_runtime` sets the system clock to 125 MHz on startup, so `SYSTICK_TICKS_PER_MS` is set to `125000`
 - `pico_runtime` also configures `clk_peri` to 125 MHz at startup, so no explicit clock enable is needed in peripheral init
+- On the STM32 target there is no equivalent runtime, so the reset handler copies `.data`, zeroes `.bss`, and calls `main` directly
+- STM32 exception and interrupt handlers are declared as weak aliases to a common default handler, so a real implementation replaces one by definition alone, with no edit to the vector table
 - Static memory allocation is used throughout; no `malloc`/`free`
 - BMP390 compensation uses `float` rather than `double`, matching Bosch's reference implementation. The smallest coefficient scale (`2^-65`) is within float's range, and the terms it feeds are multiplied by large raw values before contributing to the result
 - The I2C test double is named for the device rather than the bus. It encodes BMP390 addressing and reset behaviour, so a second device driver gets its own fake rather than sharing a generalized one
