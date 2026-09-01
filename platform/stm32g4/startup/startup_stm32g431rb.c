@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include "stm32g431xx.h"
 
 /* linker script symbols defined in the linker script stm32g431rb.ld */
 extern uint32_t _sidata;
@@ -12,6 +13,12 @@ extern int main(void);
 void Reset_Handler(void)
 {
     
+    //enable fpu, this must stay first before any float math
+    SCB->CPACR |= 0b1111 << ((3UL << 20) | (3UL << 22)); //set CP10 and CP11 to full access
+    // prevent float math  before fpu enabled
+    __DSB();//stops further instructions
+    __ISB();//redo the stuff planned ahead
+
     uint32_t *src = &_sidata;
     uint32_t *dst = &_sdata;
 
@@ -25,9 +32,10 @@ void Reset_Handler(void)
         *dst++ = 0;
     }
 
-    //if main accidentally returns, loop forever
+    
     main();
 
+    //if main accidentally returns, loop forever
     while (1) { }
 }
 
@@ -36,7 +44,7 @@ void Default_Handler(void)
     while (1) { }
 }
 
-//weak sets low priority for the handlers, so that they can be overridden by user-defined handlers(like those in my drivers)
+//weak allows that handlers can be overridden by user-defined handlers(like those in my drivers)
 //alias sets the code to be Default_Handler's until overridden by user-defined handlers
 
 
@@ -46,13 +54,14 @@ void HardFault_Handler(void) __attribute__((weak, alias("Default_Handler")));
 void MemManage_Handler(void) __attribute__((weak, alias("Default_Handler")));
 void BusFault_Handler(void) __attribute__((weak, alias("Default_Handler")));
 void UsageFault_Handler(void) __attribute__((weak, alias("Default_Handler")));
-void SVCall_Handler(void) __attribute__((weak, alias("Default_Handler")));
-void DebugMonitor_Handler(void) __attribute__((weak, alias("Default_Handler")));
+void SVC_Handler(void) __attribute__((weak, alias("Default_Handler")));
+void DebugMon_Handler(void) __attribute__((weak, alias("Default_Handler")));
 void PendSV_Handler(void) __attribute__((weak, alias("Default_Handler")));
 void SysTick_Handler(void) __attribute__((weak, alias("Default_Handler")));
 
-/* device-specific IRQs, verified against ST's official startup_stm32g431xx.s
-   (STM32CubeG4 repo, NUCLEO-G431KB EWARM template), not RM0440's family-wide table */
+/* device-specific IRQs. Ordering and reserved positions verified against
+   ST's startup_stm32g431rbtx.s (STM32CubeG4, NUCLEO-G431RB STM32CubeIDE
+   template), not RM0440's family-wide table. */
 void WWDG_IRQHandler(void) __attribute__((weak, alias("Default_Handler")));
 void PVD_PVM_IRQHandler(void) __attribute__((weak, alias("Default_Handler")));
 void RTC_TAMP_LSECSS_IRQHandler(void) __attribute__((weak, alias("Default_Handler")));
@@ -134,8 +143,8 @@ void (* const g_pfnVectors[])(void) = {
     BusFault_Handler,              /* 5 */
     UsageFault_Handler,            /* 6 */
     0, 0, 0, 0,                    /* 7-10 reserved */
-    SVCall_Handler,                /* 11 */
-    DebugMonitor_Handler,          /* 12 */
+    SVC_Handler,                /* 11 */
+    DebugMon_Handler,          /* 12 */
     0,                              /* 13 reserved */
     PendSV_Handler,                 /* 14 */
     SysTick_Handler,                /* 15 */

@@ -2,11 +2,11 @@
 
 ![CI](https://github.com/MargXX/Bare-Metal-Drivers/actions/workflows/build.yml/badge.svg)
 
-A from-scratch bare-metal driver library in C for ARM Cortex-M. No vendor HAL is used; all peripheral configuration is written directly against the chip datasheet.
+A from-scratch bare-metal driver library in C for ARM Cortex-M. No vendor HAL is used. Vendor headers (CMSIS) supply register addresses and bitfield names only; every register value written by this project is derived from the reference manual.
 
-The RP2040 driver stack is complete and hardware-verified. A second target, the STM32G431RB (Cortex-M4F), is in progress: its startup infrastructure is hand-written and boots on hardware, with peripheral drivers still to come.
+The RP2040 driver stack is complete for its current scope and hardware-verified. A second target, the STM32G431RB (Cortex-M4F), is in progress: its startup infrastructure is hand-written and boots on hardware, with peripheral drivers still to come.
 
-This driver stack is the foundation layer of a larger flight computer project: a custom PCB with a full application layer. The repository is organized into portable, platform-specific, and board-specific tiers so that a second MCU target can be added without rewriting driver logic or public API contracts.
+This driver stack is the foundation layer of a larger flight computer project: a custom PCB with a full application layer. The repository is organized into portable, platform-specific, and board-specific tiers so that a second MCU target can be added without rewriting driver logic or public API contracts. That layout is design intent tested against one target so far; nothing under `include/` or `drivers/` has run on the STM32 yet.
 
 ---
 
@@ -28,12 +28,17 @@ All of the above target the RP2040.
 
 | Component | Status | Notes |
 |---|---|---|
-| Linker script | Complete | Memory map written from the datasheet: 128K flash, SRAM1/SRAM2/CCM. |
-| Vector table and reset handler | Complete | Hand-written in C. All 102 device IRQ slots stubbed with weak aliases; ordering cross-checked against ST's own startup file. |
+| Linker script | Complete | Memory map taken from the STM32G431RB datasheet §3.5: 128K flash, SRAM1/SRAM2/CCM. |
+| Vector table and reset handler | Complete | Hand-written in C. Covers IRQ0 through IRQ101; implemented interrupts are weak-aliased to a common default handler, reserved positions are zeroed. |
+| FPU enable | Complete | CPACR write plus DSB/ISB, first statement in the reset handler. Verified by falsification; see below. |
 | CMake toolchain file | Complete | Cortex-M4F, hard float ABI, separate from the RP2040 build. |
 | Peripheral drivers | Not started | — |
 
 Verified end to end: build, flash over SWD, and an LED driven by direct RCC and GPIO register writes on real hardware. Clock tree configuration is not yet written; the chip runs on its HSI16 reset default.
+
+Interrupt ordering and reserved-slot positions were cross-checked against ST's own `startup_stm32g431rbtx.s` from STM32CubeG4, rather than against RM0440's table, because the vector map is part-specific rather than shared across the G4 family.
+
+**FPU verification.** The Cortex-M4F comes out of reset with the FPU disabled, so choosing a hard-float ABI at compile time is not sufficient on its own. The enable was falsified rather than assumed: with the CPACR write removed, a floating-point division traps and the core halts in HardFault with `CFSR = 0x00080000` (UFSR.NOCP, coprocessor not enabled) and `HFSR = 0x40000000` (FORCED). With the write in place, `CPACR` reads `0x00f00000`, no fault bits are set, and the same binary runs. The fault status registers were read over SWD rather than inferred from LED behaviour, since an LED cannot distinguish a fault from a wrong arithmetic result.
 
 ---
 
@@ -128,7 +133,7 @@ The layout separates code by *what would have to change on a port*, not by perip
 
 A `startup/` subfolder exists under `stm32g4/` and not under `rp2040/`, because that layer is hand-written on STM32 and supplied by `pico_runtime` on the RP2040. The folder is present where the code is.
 
-Vendored vendor headers sit under `platform/<mcu>/cmsis/`, split by upstream (ARM for the core headers, ST for the device headers) and kept unmodified. They provide register addresses and bitfield names only; every register value written by this project is chosen against the reference manual.
+Vendored vendor headers sit under `platform/<mcu>/cmsis/`, split by upstream (ARM for the core headers, ST for the device headers) and kept unmodified.
 
 ### Header conventions
 
@@ -161,7 +166,9 @@ Findings from evaluating what actually ports between the two targets.
 
 **SysTick is portable, verified against ARM DDI 0419E (ARMv6-M) and ARM DDI 0403E (ARMv7-M).** `SYST_CSR.CLKSOURCE` (bit 2) has the same definition on both architectures, but the "external reference clock" it selects is vendor-wired differently: RP2040 ties it to a fixed 1 MHz watchdog tick, STM32 ties it to AHB/8. This driver always sets `CLKSOURCE=1`, so it never touches that divergence. `SYST_CVR.CURRENT` is bits[23:0] on ARMv6-M and bits[31:0] on ARMv7-M, a real difference, but `SYST_RVR.RELOAD` is bits[23:0] on both, so `CURRENT` never holds more than 24 bits in practice either way. On this basis `systick.c`/`systick_reg.h` sit in `platform/cortex-m/systick/`; the one chip-specific value, `SYSTICK_TICKS_PER_MS`, is split into `platform/rp2040/systick/systick_platform.h`.
 
-**Startup infrastructure does not port and is not meant to.** The RP2040 build uses the Pico SDK's second-stage bootloader, linker script, and `pico_runtime`. The STM32 build uses a hand-written linker script, vector table, and reset handler, because no equivalent is being taken from ST. Both are `platform/` concerns and neither is claimed as shared.
+**Startup infrastructure does not port and is not meant to.** The RP2040 build uses the Pico SDK's second-stage bootloader, linker script, and `pico_runtime`. The STM32 build uses a hand-written linker script, vector table, and reset handler; ST's startup file was read as a reference to check interrupt ordering against, but no vendor source is compiled into the build. Both are `platform/` concerns and neither is claimed as shared.
+
+**Two exception handler names follow CMSIS rather than the architecture manual.** `SVC_Handler` and `DebugMon_Handler` are named as CMSIS and FreeRTOS define them, not as ARM DDI 0403E names the exceptions. A weak stub whose name does not match its intended override links cleanly and leaves the default handler wired into the vector table, so any handler with an external symbol contract has to match exactly. Device IRQ handler names are referenced only within the startup file and carry no such constraint.
 
 **Platform selection is validated, not assumed.** `PLATFORM` is a CMake cache variable checked against a whitelist (`rp2040`, `stm32g4`); an unrecognized value fails the configure with `FATAL_ERROR` rather than silently building against an empty include path.
 
@@ -250,7 +257,7 @@ openocd -f interface/cmsis-dap.cfg -f target/stm32g4x.cfg \
   -c "program build-stm32g4/blink_test.elf verify reset exit"
 ```
 
-On a Nucleo-64 board, using an external probe requires JP1 (STLK_RST) fitted, which holds the onboard ST-LINK in reset. SWDIO and SWCLK are on CN7 pins 13 and 15.
+Building produces a new `.elf` on disk but does not change what the chip is executing. The flash step above is what does.
 
 ### Monitor serial output
 
@@ -268,7 +275,7 @@ Verification is structured across three layers.
 |---|---|---|
 | 1. Host-side unit tests | Complete | BMP390 driver logic, compiled and run natively. No hardware. |
 | 2. Hardware-in-the-loop (HIL) | Deferred | Automated pytest harness moved to the flight computer project. |
-| 3. Continuous integration | Complete | Cross-compile and host test suite on every push. |
+| 3. Continuous integration | Complete (RP2040) | Cross-compile and host test suite on every push. STM32 target not yet built in CI. |
 
 Peripheral drivers (GPIO, UART, I2C) are verified on hardware through their on-target test binaries in `board/pico-devboard/`, observed manually with a logic analyzer and serial monitor. Layer 1 covers the BMP390 device driver.
 
@@ -349,6 +356,8 @@ The discrepancy surfaced during hardware re-verification after the reset read-ba
 - `include/systick.h` includes `systick_platform.h`, which is platform-specific, so the portable header is not currently free of platform dependencies. `SYSTICK_TICKS_PER_MS` is a build-configuration constant rather than something callers pass in, so it does not fit the stated `_platform.h` rule. Open.
 - The STM32G431RB target has startup infrastructure and a verified boot path, but no peripheral drivers. Nothing under `include/` or `drivers/` has been exercised on it yet.
 - The STM32 build runs on the HSI16 reset clock. No clock tree configuration is written, so `SYSTICK_TICKS_PER_MS` has no STM32 equivalent yet.
+- `VTOR` is left at its reset value. That aliases to the start of flash, so the vector table is found without configuration while booting directly from `0x08000000`. It would need setting if a bootloader ever relocated the table.
+- The STM32 reset handler's freedom from floating-point is a convention, not something the build enforces. A hard-float ABI permits VFP register saves in a function prologue, which would execute before the `CPACR` write and fault. The constraint is carried by a comment.
 
 ---
 
@@ -359,7 +368,8 @@ The discrepancy surfaced during hardware re-verification after the reset read-ba
 - The Pico SDK remaps `SysTick_Handler` to `isr_systick`, so `isr_systick` is the handler name
 - `pico_runtime` sets the system clock to 125 MHz on startup, so `SYSTICK_TICKS_PER_MS` is set to `125000`
 - `pico_runtime` also configures `clk_peri` to 125 MHz at startup, so no explicit clock enable is needed in peripheral init
-- On the STM32 target there is no equivalent runtime, so the reset handler copies `.data`, zeroes `.bss`, and calls `main` directly
+- On the STM32 target there is no equivalent runtime, so the reset handler enables the FPU, copies `.data`, zeroes `.bss`, and calls `main` directly
+- The `CPACR` write is followed by `DSB` and `ISB` because a coprocessor access change is a context-altering system control update: the write may still be outstanding, and instructions already in the pipeline would otherwise decode under the previous state
 - STM32 exception and interrupt handlers are declared as weak aliases to a common default handler, so a real implementation replaces one by definition alone, with no edit to the vector table
 - Static memory allocation is used throughout; no `malloc`/`free`
 - BMP390 compensation uses `float` rather than `double`, matching Bosch's reference implementation. The smallest coefficient scale (`2^-65`) is within float's range, and the terms it feeds are multiplied by large raw values before contributing to the result
