@@ -37,6 +37,7 @@
 *.hex
 
 build/
+tests/build/
 build-*/
 *.uf2
 *.bin
