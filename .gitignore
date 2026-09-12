@@ -62,4 +62,4 @@ dkms.conf
 Testing/
 
 # cmsis outside files
-platform/stm32g4/cmsis/
+# platform/stm32g4/cmsis/
