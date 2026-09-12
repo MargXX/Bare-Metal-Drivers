@@ -1,15 +1,28 @@
-#include "rcc_clock_init.h"
+#include "rcc.h"
 #include "stm32g431xx.h"
 
 
-#define RCC_INIT_DELAY_CYCLE_COUNT 8UL
-//reasonable time for 16 MHz, ~16.7s
-#define RCC_INIT_TIMEOUT_CYCLES 0x0FFFFFFFUL
+/**
+ * Does not configure PWR_CR1 (VOS) or PWR_CR5 (R1MODE): both reset
+ * values already satisfy Range 1 normal mode at this target frequency, given they reset to VOS = 1 (Range 1) and R1MODE = 1 (normal mode). 
+ * verified against RM0440 register descriptions.
+ */
+
+#define RCC_INIT_TIMEOUT_CYCLES 0x00FFFFFFUL
 
 #define BM_RCC_PLL_M  4UL   // 16 MHz / 4 = 4 MHz PLL input
 #define BM_RCC_PLL_N  72UL  // 4 MHz × 72 = 288 MHz VCO
 #define BM_RCC_PLL_R  2UL   // 288 MHz / 2 = 144 MHz SYSCLK
 
+#define BM_RCC_HSI_HZ 16000000UL
+
+uint32_t SystemCoreClock = BM_RCC_HSI_HZ; // default reset value, updated by bm_rcc_clock_init() if successful
+
+
+_Static_assert((BM_RCC_HSI_HZ * BM_RCC_PLL_N) / (BM_RCC_PLL_M * BM_RCC_PLL_R)
+               == BM_RCC_SYSCLK_HZ, "PLL config disagrees with advertised SYSCLK");
+
+    
 
 bool bm_rcc_clock_init(void) {
     uint32_t timeout = RCC_INIT_TIMEOUT_CYCLES;
@@ -61,10 +74,14 @@ bool bm_rcc_clock_init(void) {
         if (timeout-- == 0) { return false; }
     }
 
-    //prescalers left at reset values, which are fine for 144 MHz SYSCLK:
-    //AHB prescaler = 1, APB1 prescaler = 1, APB2 prescaler = 1S
+    //prescalers left at reset values, which are fine for 144 MHz
+    //RM0440 Table 17. Reset values for RCC_CFGR register: HPRE = 0b0000 (SYSCLK not divided), PPRE1 = 0b000 (HCLK not divided), PPRE2 = 0b000 (HCLK not divided)
+    //prescalers are /1 so HCLK = PCLK1 = PCLK2 = SYSCLK = 144 MHz
 
-    SystemCoreClockUpdate(); // update SystemCoreClock variable to reflect new SYSCLK frequency
+    // update SystemCoreClock variable to reflect new SYSCLK frequency
+    SystemCoreClock = BM_RCC_SYSCLK_HZ;
+
+               
 
     return true;
 }

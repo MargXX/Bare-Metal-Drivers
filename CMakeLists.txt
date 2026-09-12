@@ -108,6 +108,11 @@ else() #stm32g431rb tests
     bm_add_test_executable(blink_test
         board/nucleo-g431rb/blink_test.c
     )
+    bm_add_test_executable(clock_test
+        platform/cortex-m/systick/systick.c
+        platform/stm32g4/rcc/rcc.c
+        board/nucleo-g431rb/clock_test.c
+    )
 endif()
 
 # using OpenOCD for flashing instead of picotool, so not generating uf2 files

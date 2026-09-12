@@ -6,12 +6,8 @@
  * (M = 4, N = 72, R = 2), sourced entirely from RM0440's increasing-
  * frequency sequence (flash latency, PLL setup, PLL enable, SYSCLK
  * switch). Target chosen for margin under the 150 MHz Range 1 normal
- * mode ceiling against HSI16 temperature drift; see project decision
- * log for the full derivation.
+ * mode ceiling against HSI16 temperature drift.
  *
- * Does not configure PWR_CR1 (VOS) or PWR_CR5 (R1MODE): both reset
- * values already satisfy Range 1 normal mode at this target frequency,
- * verified against RM0440 register descriptions.
  */
 
 #ifndef RCC_CLOCK_INIT_H
@@ -19,6 +15,9 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+
+//confirmed in implementation, defined as constant here for use in compile time constants
+#define BM_RCC_SYSCLK_HZ 144000000UL 
 
 /**
  * @brief   Bring up SYSCLK at 144 MHz from HSI16 via the main PLL.

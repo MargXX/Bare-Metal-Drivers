@@ -14,7 +14,7 @@ void Reset_Handler(void)
 {
     
     //enable fpu, this must stay first before any float math
-    SCB->CPACR |= 0b1111 << ((3UL << 20) | (3UL << 22)); //set CP10 and CP11 to full access
+    SCB->CPACR |= ((3UL << 20) | (3UL << 22)); //set CP10 and CP11 to full access
     // prevent float math  before fpu enabled
     __DSB();//stops further instructions
     __ISB();//redo the stuff planned ahead

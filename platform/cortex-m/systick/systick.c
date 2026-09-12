@@ -80,3 +80,7 @@ bool bm_systick_timeout_elapsed(uint32_t start_ms, uint32_t timeout_ms) {
 void isr_systick(void) {
     systick_ms_count++;
 }
+
+//gcc alias attribute to allow the default SysTick_Handler name to be used in the vector table
+//isr handler is for rp2040 but for stm32g4, the default name is SysTick_Handler, so we alias it to our isr_systick function
+void SysTick_Handler(void) __attribute__((alias("isr_systick")));
