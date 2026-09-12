@@ -19,6 +19,7 @@ endif()
 if(PLATFORM STREQUAL "stm32g4")
     include_directories(${CMAKE_SOURCE_DIR}/platform/stm32g4/cmsis/core/Include)
     include_directories(${CMAKE_SOURCE_DIR}/platform/stm32g4/cmsis/device)
+    include_directories(${CMAKE_SOURCE_DIR}/platform/stm32g4/rcc)
 endif()
 
 project(RP2040_Bare_Metal_Drivers)
