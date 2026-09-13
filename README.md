@@ -4,9 +4,9 @@
 
 A from-scratch bare-metal driver library in C for ARM Cortex-M. No vendor HAL is used. Vendor headers (CMSIS) supply register addresses and bitfield names only; every register value written by this project is derived from the reference manual.
 
-The RP2040 driver stack is complete for its current scope and hardware-verified. A second target, the STM32G431RB (Cortex-M4F), is in progress: its startup infrastructure is hand-written and boots on hardware, with peripheral drivers still to come.
+The RP2040 driver stack is complete for its current scope and hardware-verified. A second target, the STM32G431RB (Cortex-M4F), is in progress: its startup infrastructure, system clock tree, and SysTick timebase are hand-written and hardware-verified, with peripheral drivers still to come.
 
-This driver stack is the foundation layer of a larger flight computer project: a custom PCB with a full application layer. The repository is organized into portable, platform-specific, and board-specific tiers so that a second MCU target can be added without rewriting driver logic or public API contracts. That layout is design intent tested against one target so far; nothing under `include/` or `drivers/` has run on the STM32 yet.
+This driver stack is the foundation layer of a larger flight computer project: a custom PCB with a full application layer. The repository is organized into portable, platform-specific, and board-specific tiers so that a second MCU target can be added without rewriting driver logic or public API contracts. That layout has been tested against one target so far. `drivers/` has not run on the STM32 yet, though `include/systick.h` now has a working implementation behind it on both targets.
 
 ---
 
@@ -15,14 +15,14 @@ This driver stack is the foundation layer of a larger flight computer project: a
 | Driver | Status | Notes |
 |---|---|---|
 | GPIO | Complete | Verified on hardware. Platform-specific by design; see [Portability](#portability). |
-| SysTick | Complete | ISR-driven millisecond timing. Verified portable across ARMv6-M and ARMv7-M; see [Portability](#portability). |
+| SysTick | Complete | ISR-driven millisecond timing. Verified portable across ARMv6-M and ARMv7-M, and running on both targets; see [Portability](#portability). |
 | UART | Complete | Verified on hardware. TX confirmed via logic analyzer and serial monitor. |
 | I2C | Complete | All transaction functions verified on hardware. First sensor read (BMP390 CHIP_ID) confirmed. |
 | BMP390 (device) | Complete | Verified on hardware: init, configure, soft reset, data-ready, forced and normal reads, float compensation. Ambient readings 100,764 Pa and 22 °C. Full host-side unit test coverage. |
 | SPI | Deferred | Moved to the flight computer project, with onboard flash logging. |
 | W25Q128 (device) | Deferred | Depends on SPI; moved with it. |
 
-All of the above target the RP2040.
+Except for SysTick, all of the above target the RP2040.
 
 ### STM32G431RB port
 
@@ -32,13 +32,21 @@ All of the above target the RP2040.
 | Vector table and reset handler | Complete | Hand-written in C. Covers IRQ0 through IRQ101; implemented interrupts are weak-aliased to a common default handler, reserved positions are zeroed. |
 | FPU enable | Complete | CPACR write plus DSB/ISB, first statement in the reset handler. Verified by falsification; see below. |
 | CMake toolchain file | Complete | Cortex-M4F, hard float ABI, separate from the RP2040 build. |
-| Peripheral drivers | Not started | — |
+| System clock tree | Complete | 144 MHz SYSCLK from HSI16 through the main PLL. Hardware-verified by direct frequency measurement; see below. |
+| SysTick | Complete | Shared `platform/cortex-m/` driver, with `SYSTICK_TICKS_PER_MS` derived from the clock tree's published constant. |
+| Peripheral drivers | Not started | GPIO, UART, I2C. |
 
-Verified end to end: build, flash over SWD, and an LED driven by direct RCC and GPIO register writes on real hardware. Clock tree configuration is not yet written; the chip runs on its HSI16 reset default.
+Verified end to end: build, flash over SWD, an LED driven by direct RCC and GPIO register writes, and a 1 Hz blink driven by the SysTick millisecond timebase, all on real hardware.
 
 Interrupt ordering and reserved-slot positions were cross-checked against ST's own `startup_stm32g431rbtx.s` from STM32CubeG4, rather than against RM0440's table, because the vector map is part-specific rather than shared across the G4 family.
 
 **FPU verification.** The Cortex-M4F comes out of reset with the FPU disabled, so choosing a hard-float ABI at compile time is not sufficient on its own. The enable was falsified rather than assumed: with the CPACR write removed, a floating-point division traps and the core halts in HardFault with `CFSR = 0x00080000` (UFSR.NOCP, coprocessor not enabled) and `HFSR = 0x40000000` (FORCED). With the write in place, `CPACR` reads `0x00f00000`, no fault bits are set, and the same binary runs. The fault status registers were read over SWD rather than inferred from LED behaviour, since an LED cannot distinguish a fault from a wrong arithmetic result.
+
+**Clock tree.** `bm_rcc_clock_init` raises SYSCLK from the HSI16 reset default to 144 MHz: flash latency to 4 wait states with a readback confirming it took, the PLL configured at M = 4, N = 72, R = 2, then the SYSCLK mux switched and polled until `SWS` confirms it. Every poll is bounded by a timeout, and the function returns `false` rather than hanging.
+
+144 MHz sits under the 150 MHz ceiling of voltage Range 1 normal mode with enough margin for HSI16's temperature drift, which the PLL scales 1:1. `PWR_CR1.VOS` and `PWR_CR5.R1MODE` reset values already satisfy Range 1 normal at this frequency, so neither is written, and the code comments that as a verified decision rather than leaving it as an absence.
+
+**Clock tree verification.** Two checks. A SysTick-driven 1 Hz blink confirms the PLL locked, the SYSCLK switch completed, and the tick interrupt fires: a failed switch leaves the core at 16 MHz against a reload sized for 144 and produces a visibly 9x slow blink. That check resolves to roughly 1%, so the frequency was also measured directly. SYSCLK was routed to MCO on PA8 with `MCOPRE` at divide-by-16 and read on a logic analyzer at 48 MSa/s: 670.5 periods across a 3576-sample span gives 9.0000 MHz at the pin, so **SYSCLK = 144.0 ± 0.1 MHz**. Absolute accuracy is bounded by HSI16's ±1% untrimmed specification, not by the measurement.
 
 ---
 
@@ -95,6 +103,11 @@ Bare-Metal-Drivers/
 │       ├── cmsis/              vendored, unmodified vendor headers
 │       │   ├── core/Include/       ARM CMSIS-Core
 │       │   └── device/             ST CMSIS device headers
+│       ├── rcc/
+│       │   ├── rcc.c           system clock tree; no portable contract
+│       │   └── rcc.h           publishes BM_RCC_SYSCLK_HZ
+│       ├── systick/
+│       │   └── systick_platform.h    SYSTICK_TICKS_PER_MS
 │       └── startup/
 │           ├── stm32g431rb.ld
 │           └── startup_stm32g431rb.c
@@ -108,7 +121,8 @@ Bare-Metal-Drivers/
 │   │   ├── debug_blink.{h,c}
 │   │   └── debug_print.{h,c}
 │   └── nucleo-g431rb/
-│       └── blink_test.c
+│       ├── blink_test.c
+│       └── clock_test.c        SysTick blink plus MCO output for verification
 │
 └── tests/                      Off-target suite; separate CMake project
     ├── CMakeLists.txt
@@ -123,15 +137,15 @@ Bare-Metal-Drivers/
 
 ### The three tiers
 
-The layout separates code by *what would have to change on a port*, not by peripheral name.
+The layout separates code by what would have to change on a port, not by peripheral name.
 
-**`include/` and `drivers/` are portable.** Nothing here references a specific MCU. `include/` holds only the public API contracts that keep the same signature on every target. `drivers/bmp390/` holds device logic that reaches hardware exclusively through those contracts, which is what makes it portable and what makes off-target unit testing cheap.
+**`include/` and `drivers/` are portable.** Nothing here references a specific MCU. `include/` holds the public API contracts that keep the same signature on every target. `drivers/bmp390/` holds device logic that reaches hardware only through those contracts, which is what makes it portable and what makes off-target unit testing possible.
 
 **`platform/` is vendor-specific.** Selected at link time via `-DPLATFORM=<mcu>`. The `cortex-m/` subtree holds code shared by any Cortex-M core regardless of silicon vendor; `rp2040/` and `stm32g4/` hold code specific to those chips. Peripherals get their own subfolders so that a second target does not produce a flat directory of thirty files.
 
 **`board/` is wiring-specific.** Which pin drives the LED, which I2C bus the sensor sits on, what baud the serial monitor expects. These are facts about one physical assembly, not about the MCU family. A second board running the same MCU gets its own sibling directory.
 
-A `startup/` subfolder exists under `stm32g4/` and not under `rp2040/`, because that layer is hand-written on STM32 and supplied by `pico_runtime` on the RP2040. The folder is present where the code is.
+A `startup/` subfolder exists under `stm32g4/` and not under `rp2040/`, because that layer is hand-written on STM32 and supplied by `pico_runtime` on the RP2040. The same holds for `rcc/`: the RP2040's PLL programming is owned by `pico_runtime` and does not exist in this repository, so there is no second implementation to write a shared contract against.
 
 Vendored vendor headers sit under `platform/<mcu>/cmsis/`, split by upstream (ARM for the core headers, ST for the device headers) and kept unmodified.
 
@@ -150,11 +164,13 @@ Vendored vendor headers sit under `platform/<mcu>/cmsis/`, split by upstream (AR
 
 `_platform.h` files exist only where there are constants callers must pass in. Drivers with no caller-facing platform constants do not have one.
 
-`resets_reg.h` sits flat in `platform/rp2040/` rather than in a peripheral subfolder, because both UART and I2C write to the RESETS block. It is the single source for that block and is included directly by each `.c` that needs it.
+`rcc.h` is a local declaration header, not a portable contract, on the same grounds as `gpio.h`: callers need a prototype, and there is no second implementation to write a shared interface against. Its scope is the system clock tree. Single-consumer peripheral clock gating, such as `RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN`, stays inline with the driver that consumes it.
 
-Device `_reg.h` files live in `drivers/<device>/` rather than under `platform/`, because they describe the sensor's internal register map, which is identical regardless of host MCU or bus. Only the transport layer underneath changes on a port.
+`resets_reg.h` sits flat in `platform/rp2040/` rather than in a peripheral subfolder, because both UART and I2C write to the RESETS block. It is the single definition for that block and is included directly by each `.c` that needs it.
 
-Implementation files include every header whose symbols they use directly, rather than relying on transitive includes through a public header. This costs nothing at compile time (header guards) and prevents a silent break when a public header's own includes change.
+Device `_reg.h` files live in `drivers/<device>/` rather than under `platform/`, because they describe the sensor's internal register map, which is the same regardless of host MCU or bus. Only the transport layer underneath changes on a port.
+
+Implementation files include every header whose symbols they use directly, instead of relying on transitive includes through a public header. This costs nothing at compile time because of header guards, and it prevents a break when a public header's own includes change.
 
 ---
 
@@ -162,13 +178,19 @@ Implementation files include every header whose symbols they use directly, rathe
 
 Findings from evaluating what actually ports between the two targets.
 
-**GPIO has no portable contract.** RP2040 uses flat pin numbering with a function-select field; STM32 uses port + pin + alternate-function. Not unifiable behind one signature, so `gpio.h` lives in `platform/rp2040/gpio/`, not `include/`, unlike `uart.h`, `i2c.h`, and `systick.h`.
+**GPIO has no portable contract.** RP2040 uses flat pin numbering with a function-select field; STM32 uses port, pin, and alternate-function. These do not fit one signature, so `gpio.h` lives in `platform/rp2040/gpio/` and not in `include/`, unlike `uart.h`, `i2c.h`, and `systick.h`.
 
-**SysTick is portable, verified against ARM DDI 0419E (ARMv6-M) and ARM DDI 0403E (ARMv7-M).** `SYST_CSR.CLKSOURCE` (bit 2) has the same definition on both architectures, but the "external reference clock" it selects is vendor-wired differently: RP2040 ties it to a fixed 1 MHz watchdog tick, STM32 ties it to AHB/8. This driver always sets `CLKSOURCE=1`, so it never touches that divergence. `SYST_CVR.CURRENT` is bits[23:0] on ARMv6-M and bits[31:0] on ARMv7-M, a real difference, but `SYST_RVR.RELOAD` is bits[23:0] on both, so `CURRENT` never holds more than 24 bits in practice either way. On this basis `systick.c`/`systick_reg.h` sit in `platform/cortex-m/systick/`; the one chip-specific value, `SYSTICK_TICKS_PER_MS`, is split into `platform/rp2040/systick/systick_platform.h`.
+**SysTick is portable, verified against ARM DDI 0419E (ARMv6-M) and ARM DDI 0403E (ARMv7-M).** `SYST_CSR.CLKSOURCE` (bit 2) has the same definition on both architectures, but the "external reference clock" it selects is vendor-wired differently: RP2040 ties it to a fixed 1 MHz watchdog tick, STM32 ties it to AHB/8. This driver always sets `CLKSOURCE=1`, so it never touches that divergence. `SYST_CVR.CURRENT` is bits[23:0] on ARMv6-M and bits[31:0] on ARMv7-M, a real difference, but `SYST_RVR.RELOAD` is bits[23:0] on both, so `CURRENT` never holds more than 24 bits in practice either way. On this basis `systick.c`/`systick_reg.h` sit in `platform/cortex-m/systick/`; the one chip-specific value, `SYSTICK_TICKS_PER_MS`, is split into a `systick_platform.h` under each target.
 
-**Startup infrastructure does not port and is not meant to.** The RP2040 build uses the Pico SDK's second-stage bootloader, linker script, and `pico_runtime`. The STM32 build uses a hand-written linker script, vector table, and reset handler; ST's startup file was read as a reference to check interrupt ordering against, but no vendor source is compiled into the build. Both are `platform/` concerns and neither is claimed as shared.
+The same `systick.c` now drives millisecond timing on both an ARMv6-M and an ARMv7-M part with no conditional compilation, and the only per-target file is a single-constant header.
 
-**Two exception handler names follow CMSIS rather than the architecture manual.** `SVC_Handler` and `DebugMon_Handler` are named as CMSIS and FreeRTOS define them, not as ARM DDI 0403E names the exceptions. A weak stub whose name does not match its intended override links cleanly and leaves the default handler wired into the vector table, so any handler with an external symbol contract has to match exactly. Device IRQ handler names are referenced only within the startup file and carry no such constraint.
+**Clock configuration does not port.** `SYSTICK_TICKS_PER_MS` is 125000 on the RP2040, where `pico_runtime` fixes the core at 125 MHz, and is derived from `BM_RCC_SYSCLK_HZ` on the STM32, where this project configures the clock itself. A `_Static_assert` in `rcc.c` fails the build if that constant and the PLL dividers disagree, and a `static_assert` in the STM32 platform header confirms the resulting reload value fits SysTick's 24-bit `RVR` field.
+
+**`SystemCoreClock` is defined by this project.** CMSIS declares the variable and vendor code reads it. ST's `system_stm32g4xx.c`, which normally maintains it, is not vendored, since it contains clock logic rather than register definitions. `rcc.c` defines the variable instead, initialized to 16 MHz because that is the post-reset SYSCLK, and reassigns it once the switch to 144 MHz is confirmed, so it never reports a frequency the chip is not running at.
+
+**Startup infrastructure does not port.** The RP2040 build uses the Pico SDK's second-stage bootloader, linker script, and `pico_runtime`. The STM32 build uses a hand-written linker script, vector table, and reset handler. ST's startup file was read as a reference to check interrupt ordering against, but no vendor source is compiled into the build. Both are `platform/` concerns and neither is shared.
+
+**Three exception handler names follow CMSIS rather than the architecture manual.** `SVC_Handler` and `DebugMon_Handler` are named as CMSIS and FreeRTOS define them, not as ARM DDI 0403E names the exceptions. A weak stub whose name does not match its intended override links cleanly and leaves the default handler wired into the vector table, so any handler with an external symbol contract has to match exactly. The SysTick handler is the case where the two targets disagree outright: the Pico SDK's vector table expects `isr_systick`, while CMSIS and the hand-written STM32 table expect `SysTick_Handler`. Rather than duplicate the body, `systick.c` defines `isr_systick` and aliases `SysTick_Handler` to it with a GCC alias attribute, so one implementation satisfies both vector tables and the strong definition overrides the weak default in the startup file. Device IRQ handler names are referenced only within the startup file and carry no such constraint.
 
 **Platform selection is validated, not assumed.** `PLATFORM` is a CMake cache variable checked against a whitelist (`rp2040`, `stm32g4`); an unrecognized value fails the configure with `FATAL_ERROR` rather than silently building against an empty include path.
 
@@ -223,7 +245,9 @@ cmake -B build-stm32g4 -DPLATFORM=stm32g4
 cmake --build build-stm32g4
 ```
 
-Target: `blink_test`.
+Targets: `blink_test`, `clock_test`.
+
+`blink_test` runs on the HSI16 reset clock with a busy-wait delay and depends on nothing beyond startup. `clock_test` configures the clock tree and SysTick, blinks PA5 from the millisecond timebase, and drives MCO on PA8 for frequency measurement.
 
 ### Build and run host tests
 
@@ -254,10 +278,10 @@ STM32G431RB:
 ```bash
 openocd -f interface/cmsis-dap.cfg -f target/stm32g4x.cfg \
   -c "adapter speed 5000" \
-  -c "program build-stm32g4/blink_test.elf verify reset exit"
+  -c "program build-stm32g4/clock_test.elf verify reset exit"
 ```
 
-Building produces a new `.elf` on disk but does not change what the chip is executing. The flash step above is what does.
+Building produces a new `.elf` on disk but does not change what the chip is executing. The flash step above does that.
 
 ### Monitor serial output
 
@@ -279,11 +303,13 @@ Verification is structured across three layers.
 
 Peripheral drivers (GPIO, UART, I2C) are verified on hardware through their on-target test binaries in `board/pico-devboard/`, observed manually with a logic analyzer and serial monitor. Layer 1 covers the BMP390 device driver.
 
-Manual hardware verification is not the same thing as Layer 2. Layer 2 refers specifically to an automated harness that drives the board and asserts on its output without a human watching an LED. That remains reassigned.
+Manual hardware verification is not Layer 2. Layer 2 is an automated harness that drives the board and asserts on its output with no human watching an LED. That remains reassigned.
 
 ### SysTick
 
 SysTick has no on-target test binary. Absolute tick accuracy requires an external time reference, measured as a pin toggle on the logic analyzer, rather than firmware reporting on its own timing. The rollover-safe elapsed-time arithmetic, `(now - start) >= timeout`, is exercised by `tests/systick_fake.c` in the host suite, and SysTick is exercised transitively by the delay and timeout paths in the I2C and BMP390 on-target suites.
+
+On the STM32, `clock_test` exercises the driver without asserting on it. The 1 Hz blink it produces would be visibly 9x slow if the reload value and the actual core frequency disagreed, which bounds the tick rate coarsely. The clock the reload is computed from is measured directly; the tick itself is not.
 
 ### Layer 1: host-side unit tests
 
@@ -301,7 +327,7 @@ Two mechanisms make failure paths reachable. A transaction counter lets a test s
 
 `tests/systick_fake.c` provides a settable millisecond counter with rollover-safe elapsed-time arithmetic. Each simulated I2C transaction advances that clock, so polling loops reach a timeout rather than spinning indefinitely.
 
-**Test design.** Expected values are derived independently rather than by re-running the code under test: compensation results are hand-computed, and calibration coefficients are transcribed separately from the datasheet quantization table. Two calibration fixtures are used. The primary one is synthetic, with byte values chosen so that an index slip, a byte-order swap, or a missing sign extension produces a visibly wrong coefficient. The second is a 21-byte blob captured from the physical sensor. Floating-point comparisons use a relative tolerance, since the coefficients span roughly twenty orders of magnitude.
+**Test design.** Expected values are derived independently instead of by re-running the code under test: compensation results are hand-computed, and calibration coefficients are transcribed separately from the datasheet quantization table. Two calibration fixtures are used. The primary one is synthetic, with byte values chosen so that an index slip, a byte-order swap, or a missing sign extension produces a visibly wrong coefficient. The second is a 21-byte blob captured from the physical sensor. Floating-point comparisons use a relative tolerance, since the coefficients span roughly twenty orders of magnitude.
 
 The fake's model of device behaviour is itself derived from the datasheet. The reset-verification test therefore covers the mechanism, that the driver detects a reset which fails to restore defaults, but not the value, since it passes for any value the fake and the driver agree on. Values encoded in the fake are confirmed against hardware separately.
 
@@ -354,8 +380,10 @@ The discrepancy surfaced during hardware re-verification after the reset read-ba
 - `bm_bmp390_init` does not populate `dev->cfg`. That field is indeterminate until `bm_bmp390_configure` returns `true`, and `configured` is its validity flag. Every driver path that reads `cfg` checks `configured` first, so no driver code can observe an indeterminate value, but callers must not read it before configuring.
 - SysTick's absolute tick accuracy is not asserted by any automated test. See [SysTick](#systick).
 - `include/systick.h` includes `systick_platform.h`, which is platform-specific, so the portable header is not currently free of platform dependencies. `SYSTICK_TICKS_PER_MS` is a build-configuration constant rather than something callers pass in, so it does not fit the stated `_platform.h` rule. Open.
-- The STM32G431RB target has startup infrastructure and a verified boot path, but no peripheral drivers. Nothing under `include/` or `drivers/` has been exercised on it yet.
-- The STM32 build runs on the HSI16 reset clock. No clock tree configuration is written, so `SYSTICK_TICKS_PER_MS` has no STM32 equivalent yet.
+- The STM32G431RB target has startup infrastructure, a verified clock tree, and a working SysTick timebase, but no peripheral drivers. Nothing under `drivers/` has been exercised on it yet.
+- The timeout guards in `bm_rcc_clock_init` have never executed their failure path. They are bounded loops that have only been observed succeeding, so the guards themselves are untested.
+- The clock frequency measurement has not been falsified. Reading 144 MHz confirms the clock only if the setup would have reported something else had the clock differed; deliberately programming a wrong `N` and confirming the measured frequency moves proportionally is the step that would establish that.
+- `RCC_INIT_TIMEOUT_CYCLES` is a single iteration budget shared by four poll loops whose specified settling times differ by orders of magnitude. It is not derived from datasheet timings.
 - `VTOR` is left at its reset value. That aliases to the start of flash, so the vector table is found without configuration while booting directly from `0x08000000`. It would need setting if a bootloader ever relocated the table.
 - The STM32 reset handler's freedom from floating-point is a convention, not something the build enforces. A hard-float ABI permits VFP register saves in a function prologue, which would execute before the `CPACR` write and fault. The constraint is carried by a comment.
 
@@ -365,10 +393,12 @@ The discrepancy surfaced during hardware re-verification after the reset read-ba
 
 - `bm_` prefix is used on all driver functions to avoid linker collisions with the Pico SDK
 - `pico_runtime` is used instead of `pico_stdlib` to avoid name conflicts with driver functions
-- The Pico SDK remaps `SysTick_Handler` to `isr_systick`, so `isr_systick` is the handler name
+- The Pico SDK remaps `SysTick_Handler` to `isr_systick`, so `isr_systick` holds the handler body and `SysTick_Handler` is a GCC alias to it for the STM32 vector table
 - `pico_runtime` sets the system clock to 125 MHz on startup, so `SYSTICK_TICKS_PER_MS` is set to `125000`
 - `pico_runtime` also configures `clk_peri` to 125 MHz at startup, so no explicit clock enable is needed in peripheral init
-- On the STM32 target there is no equivalent runtime, so the reset handler enables the FPU, copies `.data`, zeroes `.bss`, and calls `main` directly
+- On the STM32 target there is no equivalent runtime, so the reset handler enables the FPU, copies `.data`, zeroes `.bss`, and calls `main` directly, and the clock tree is configured explicitly by `bm_rcc_clock_init`
+- `rcc.h` publishes `BM_RCC_SYSCLK_HZ` as a compile-time constant while the PLL dividers stay private to `rcc.c`, with a `_Static_assert` proving the two agree. The value is nominal: HSI16 is specified to ±1% over 0 to 85 °C and the PLL scales that drift 1:1
+- `bm_rcc_clock_init` takes no frequency parameter and configures one fixed target
 - The `CPACR` write is followed by `DSB` and `ISB` because a coprocessor access change is a context-altering system control update: the write may still be outstanding, and instructions already in the pipeline would otherwise decode under the previous state
 - STM32 exception and interrupt handlers are declared as weak aliases to a common default handler, so a real implementation replaces one by definition alone, with no edit to the vector table
 - Static memory allocation is used throughout; no `malloc`/`free`
