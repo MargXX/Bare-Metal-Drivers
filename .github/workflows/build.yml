@@ -17,6 +17,18 @@ jobs:
         run: cmake -B build
       - name: Build
         run: cmake --build build
+  build-stm32g4:
+    name: STM32G4 Build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install ARM toolchain
+        run: sudo apt-get update && sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi cmake
+      - name: Configure
+        run: cmake -B build-stm32g4 -DPLATFORM=stm32g4
+      - name: Build
+        run: cmake --build build-stm32g4
   test:
     name: Host Unit Tests
     runs-on: ubuntu-24.04

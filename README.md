@@ -2,11 +2,11 @@
 
 ![CI](https://github.com/MargXX/Bare-Metal-Drivers/actions/workflows/build.yml/badge.svg)
 
-A from-scratch bare-metal driver library in C for ARM Cortex-M. No vendor HAL is used. Vendor headers (CMSIS) supply register addresses and bitfield names only; every register value written by this project is derived from the reference manual.
+A bare-metal driver library in C for ARM Cortex-M. The RP2040 drivers are written from scratch with no vendor HAL: vendor headers supply register addresses and bitfield names only, and every register value written is derived from the reference manual.
 
-The RP2040 driver stack is complete for its current scope and hardware-verified. A second target, the STM32G431RB (Cortex-M4F), is in progress: its startup infrastructure, system clock tree, and SysTick timebase are hand-written and hardware-verified, with peripheral drivers still to come.
+The RP2040 driver stack is complete for its current scope and hardware-verified. A second target, the STM32G431RB (Cortex-M4F), is in progress. Its startup infrastructure, system clock tree, and SysTick timebase are hand-written at register level and hardware-verified. Its GPIO, UART, and I2C drivers implement the same public headers as the RP2040 but use the ST HAL as their backend; see [STM32 HAL backend](#stm32-hal-backend).
 
-This driver stack is the foundation layer of a larger flight computer project: a custom PCB with a full application layer. The repository is organized into portable, platform-specific, and board-specific tiers so that a second MCU target can be added without rewriting driver logic or public API contracts. That layout has been tested against one target so far. `drivers/` has not run on the STM32 yet, though `include/systick.h` now has a working implementation behind it on both targets.
+This driver stack is the foundation layer of a larger flight computer project: a custom PCB with a full application layer. The repository is organized into portable, platform-specific, and board-specific tiers so that a second MCU target can be added without rewriting driver logic or public API contracts. `include/uart.h`, `include/i2c.h`, and `include/systick.h` now have implementations behind them on both targets, and `drivers/bmp390/` builds unchanged for the STM32. It has not yet run on STM32 hardware.
 
 ---
 
@@ -34,9 +34,12 @@ Except for SysTick, all of the above target the RP2040.
 | CMake toolchain file | Complete | Cortex-M4F, hard float ABI, separate from the RP2040 build. |
 | System clock tree | Complete | 144 MHz SYSCLK from HSI16 through the main PLL. Hardware-verified by direct frequency measurement; see below. |
 | SysTick | Complete | Shared `platform/cortex-m/` driver, with `SYSTICK_TICKS_PER_MS` derived from the clock tree's published constant. |
-| Peripheral drivers | Not started | GPIO, UART, I2C. |
+| GPIO | Built, not hardware-verified | ST HAL backend. Platform-specific header, as on the RP2040. |
+| UART | Built, not hardware-verified | ST HAL backend behind `include/uart.h`. USART1-3, LPUART1. |
+| I2C | Built, not hardware-verified | ST HAL backend behind `include/i2c.h`. I2C1-3, standard and fast mode. |
+| BMP390 (device) | Built, not hardware-verified | `drivers/bmp390/` compiled unchanged against the STM32 I2C driver. |
 
-Verified end to end: build, flash over SWD, an LED driven by direct RCC and GPIO register writes, and a 1 Hz blink driven by the SysTick millisecond timebase, all on real hardware.
+Verified end to end: build, flash over SWD, an LED driven by direct RCC and GPIO register writes, and a 1 Hz blink driven by the SysTick millisecond timebase, all on real hardware. The HAL-backed peripheral drivers compile cleanly under the project's `-Wall -Wextra -Werror` and have on-target test binaries, but none has been flashed yet.
 
 Interrupt ordering and reserved-slot positions were cross-checked against ST's own `startup_stm32g431rbtx.s` from STM32CubeG4, rather than against RM0440's table, because the vector map is part-specific rather than shared across the G4 family.
 
@@ -103,6 +106,23 @@ Bare-Metal-Drivers/
 │       ├── cmsis/              vendored, unmodified vendor headers
 │       │   ├── core/Include/       ARM CMSIS-Core
 │       │   └── device/             ST CMSIS device headers
+│       ├── hal/                vendored, unmodified ST HAL driver (v1.2.7)
+│       │   ├── Inc/
+│       │   └── Src/
+│       ├── stm32g4xx_hal_conf.h    HAL module selection
+│       ├── hal_glue.{h,c}      points the HAL at rcc.c and SysTick
+│       ├── gpio/
+│       │   ├── gpio.h          no portable contract; see Portability
+│       │   ├── gpio.c          HAL backend
+│       │   └── gpio_platform.h     BM_GPIO_PIN port/pin packing
+│       ├── uart/
+│       │   ├── uart.c          HAL backend for include/uart.h
+│       │   ├── uart_reg.h      instance and pin pair tables
+│       │   └── uart_platform.h
+│       ├── i2c/
+│       │   ├── i2c.c           HAL backend for include/i2c.h
+│       │   ├── i2c_reg.h       instance, pin pair, and TIMINGR tables
+│       │   └── i2c_platform.h
 │       ├── rcc/
 │       │   ├── rcc.c           system clock tree; no portable contract
 │       │   └── rcc.h           publishes BM_RCC_SYSCLK_HZ
@@ -122,7 +142,13 @@ Bare-Metal-Drivers/
 │   │   └── debug_print.{h,c}
 │   └── nucleo-g431rb/
 │       ├── blink_test.c
-│       └── clock_test.c        SysTick blink plus MCO output for verification
+│       ├── clock_test.c        SysTick blink plus MCO output for verification
+│       ├── gpio_test.c
+│       ├── uart_test.c
+│       ├── i2c_test.c
+│       ├── bmp390_test.c
+│       ├── debug_blink.{h,c}
+│       └── debug_print.{h,c}
 │
 └── tests/                      Off-target suite; separate CMake project
     ├── CMakeLists.txt
@@ -147,7 +173,7 @@ The layout separates code by what would have to change on a port, not by periphe
 
 A `startup/` subfolder exists under `stm32g4/` and not under `rp2040/`, because that layer is hand-written on STM32 and supplied by `pico_runtime` on the RP2040. The same holds for `rcc/`: the RP2040's PLL programming is owned by `pico_runtime` and does not exist in this repository, so there is no second implementation to write a shared contract against.
 
-Vendored vendor headers sit under `platform/<mcu>/cmsis/`, split by upstream (ARM for the core headers, ST for the device headers) and kept unmodified.
+Vendored vendor headers sit under `platform/<mcu>/cmsis/`, split by upstream (ARM for the core headers, ST for the device headers) and kept unmodified. The ST HAL sits under `platform/stm32g4/hal/` on the same terms. Both are copied in rather than added as submodules.
 
 ### Header conventions
 
@@ -165,6 +191,8 @@ Vendored vendor headers sit under `platform/<mcu>/cmsis/`, split by upstream (AR
 `_platform.h` files exist only where there are constants callers must pass in. Drivers with no caller-facing platform constants do not have one.
 
 `rcc.h` is a local declaration header, not a portable contract, on the same grounds as `gpio.h`: callers need a prototype, and there is no second implementation to write a shared interface against. Its scope is the system clock tree. Single-consumer peripheral clock gating, such as `RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN`, stays inline with the driver that consumes it.
+
+On the STM32 HAL backend, `_reg.h` holds no register structs, since those come from the CMSIS device header. It keeps the same role and audience: the peripheral instance table, the valid pin pairs with their alternate function, precomputed timing values, and timeouts, included only by the matching `.c`.
 
 `resets_reg.h` sits flat in `platform/rp2040/` rather than in a peripheral subfolder, because both UART and I2C write to the RESETS block. It is the single definition for that block and is included directly by each `.c` that needs it.
 
@@ -195,6 +223,20 @@ The same `systick.c` now drives millisecond timing on both an ARMv6-M and an ARM
 **Platform selection is validated, not assumed.** `PLATFORM` is a CMake cache variable checked against a whitelist (`rp2040`, `stm32g4`); an unrecognized value fails the configure with `FATAL_ERROR` rather than silently building against an empty include path.
 
 **Each target gets its own build directory.** `CMAKE_TOOLCHAIN_FILE` must be set before `project()` and is fixed in a build directory's cache at first configure, so one directory cannot serve two toolchains.
+
+### STM32 HAL backend
+
+The STM32 peripheral drivers implement `include/uart.h` and `include/i2c.h` with the ST HAL underneath. Callers, including `drivers/bmp390/`, see the same signatures and the same return conventions as on the RP2040. Only the backend differs. The register-level STM32 code (startup, `rcc.c`, and the shared SysTick driver) does not use the HAL and is unchanged.
+
+**The HAL does not own the clock tree or SysTick.** `bm_rcc_clock_init` still configures the clock, and `platform/cortex-m/systick` still owns SysTick and its handler. `hal_glue.c` overrides the HAL's weak `HAL_InitTick` (no-op), `HAL_IncTick` (no-op), and `HAL_GetTick` (returns the `bm_systick` millisecond count), so every HAL timeout runs off the existing timebase. ST's `system_stm32g4xx.c` is not vendored, so `hal_glue.c` also defines the `AHBPrescTable`/`APBPrescTable` the HAL's clock queries read.
+
+**Init order is enforced, not assumed.** `bm_uart_init` and `bm_i2c_init` return `false` unless SysTick is running, since a HAL timeout against a stopped tick never expires. `bm_i2c_init` also returns `false` unless PCLK1 and PCLK2 read back as `BM_RCC_SYSCLK_HZ`, because its `TIMINGR` values are precomputed for 144 MHz. A `_Static_assert` in `i2c_reg.h` fails the build if that constant changes.
+
+**Pins are one `uint8_t`.** STM32 pins carry a port, so the STM32 drivers pack port and pin as `(port << 4) | pin` with `BM_GPIO_PIN(BM_GPIO_PORT_A, 5)`. That keeps `bm_uart_init(&num, baud, tx, rx)` and `bm_i2c_init(&num, hz, sda, scl)` the same shape as on the RP2040. As there, the pin pair selects the peripheral and its alternate function from a table in `_reg.h`, and an unlisted pair returns `false`.
+
+**Error behaviour matches the RP2040 drivers.** An I2C failure after START (NAK, bus error, timeout) resets the peripheral before returning `false`. A bus that is busy before the transaction starts returns `false` without a reset. `bm_i2c_get_status` returns `I2C_ISR` and the HAL error code of the most recent transaction, saved before that reset clears it.
+
+**The HAL builds as its own static library** with no project warning flags and with `-ffunction-sections -fdata-sections`, so `--gc-sections` drops the HAL code no driver calls. Its headers are included as system headers so `-Werror` on project sources does not apply to them. Only the modules enabled in `stm32g4xx_hal_conf.h` are compiled.
 
 ---
 
@@ -245,9 +287,11 @@ cmake -B build-stm32g4 -DPLATFORM=stm32g4
 cmake --build build-stm32g4
 ```
 
-Targets: `blink_test`, `clock_test`.
+Targets: `blink_test`, `clock_test`, `gpio_test`, `uart_test`, `i2c_test`, `bmp390_test`.
 
-`blink_test` runs on the HSI16 reset clock with a busy-wait delay and depends on nothing beyond startup. `clock_test` configures the clock tree and SysTick, blinks PA5 from the millisecond timebase, and drives MCO on PA8 for frequency measurement.
+`blink_test` runs on the HSI16 reset clock with a busy-wait delay and depends on nothing beyond startup. `clock_test` configures the clock tree and SysTick, blinks PA5 from the millisecond timebase, and drives MCO on PA8 for frequency measurement. Neither uses the HAL.
+
+The other four exercise the HAL-backed drivers on the Nucleo-G431RB. Output goes to the ST-LINK virtual COM port (USART2 on PA2/PA3, 115200 8N1). The BMP390 connects to I2C1 on PB9 (SDA, D14) and PB8 (SCL, D15). `gpio_test` toggles LD2 (PA5) and stops while the B1 button (PC13) is held. `i2c_test` reads CHIP_ID, then checks that a NAK to an absent address fails and recovers. `bmp390_test` runs the same sequence as the Pico version.
 
 ### Build and run host tests
 
@@ -299,7 +343,7 @@ Verification is structured across three layers.
 |---|---|---|
 | 1. Host-side unit tests | Complete | BMP390 driver logic, compiled and run natively. No hardware. |
 | 2. Hardware-in-the-loop (HIL) | Deferred | Automated pytest harness moved to the flight computer project. |
-| 3. Continuous integration | Complete (RP2040) | Cross-compile and host test suite on every push. STM32 target not yet built in CI. |
+| 3. Continuous integration | Complete | RP2040 and STM32G4 cross-compile and host test suite on every push. |
 
 Peripheral drivers (GPIO, UART, I2C) are verified on hardware through their on-target test binaries in `board/pico-devboard/`, observed manually with a logic analyzer and serial monitor. Layer 1 covers the BMP390 device driver.
 
@@ -333,12 +377,13 @@ The fake's model of device behaviour is itself derived from the datasheet. The r
 
 ### Layer 3: continuous integration
 
-`.github/workflows/build.yml` runs two jobs on every push:
+`.github/workflows/build.yml` runs three jobs on every push:
 
 - **RP2040 Build**: installs the ARM toolchain, clones the pinned SDK, and cross-compiles every target.
+- **STM32G4 Build**: installs the ARM toolchain and cross-compiles every STM32 target, including the vendored HAL. No SDK clone is needed.
 - **Host Unit Tests**: configures the `tests/` project with the native compiler and runs the Layer 1 suite through CTest.
 
-The jobs use different toolchains and do not depend on each other, so they run in parallel and report separately. The STM32 target is not yet built in CI.
+The jobs use different toolchains and do not depend on each other, so they run in parallel and report separately.
 
 ### Flight simulation and replay
 
@@ -380,7 +425,13 @@ The discrepancy surfaced during hardware re-verification after the reset read-ba
 - `bm_bmp390_init` does not populate `dev->cfg`. That field is indeterminate until `bm_bmp390_configure` returns `true`, and `configured` is its validity flag. Every driver path that reads `cfg` checks `configured` first, so no driver code can observe an indeterminate value, but callers must not read it before configuring.
 - SysTick's absolute tick accuracy is not asserted by any automated test. See [SysTick](#systick).
 - `include/systick.h` includes `systick_platform.h`, which is platform-specific, so the portable header is not currently free of platform dependencies. `SYSTICK_TICKS_PER_MS` is a build-configuration constant rather than something callers pass in, so it does not fit the stated `_platform.h` rule. Open.
-- The STM32G431RB target has startup infrastructure, a verified clock tree, and a working SysTick timebase, but no peripheral drivers. Nothing under `drivers/` has been exercised on it yet.
+- The STM32 GPIO, UART, and I2C drivers and their Nucleo test binaries build, but none has been flashed or verified on hardware. `drivers/bmp390/` has not run on the STM32 yet.
+- The STM32 pin pair tables in `uart_reg.h` and `i2c_reg.h` were taken from the STM32G431xx datasheet (DS12589) alternate function table and have not been checked pin by pin on hardware. The pairs the Nucleo tests use (PA2/PA3, PB8/PB9) are the first to check.
+- The STM32 I2C `TIMINGR` values are derived from RM0440's timing formulas, not from ST's timing tool, and the SCL frequency has not been measured.
+- Fast mode plus (1 MHz) is not supported on the STM32. It needs the SYSCFG FM+ drive enable and its own `TIMINGR`, so `bm_i2c_init` rejects any speed above `I2C_MODE_FAST`. The RP2040 supports it.
+- UART4 is in the STM32 instance table but unreachable. Its only listed pins on this package, PC10/PC11, also carry USART3, and the pin pair lookup takes the first match.
+- `bm_i2c_reset` on the STM32 disables and re-enables the peripheral but does not clock SCL to release a slave holding SDA low. The RP2040 driver does not either.
+- STM32 HAL timeouts read the SysTick millisecond count. Calling `bm_systick_reset` or `bm_systick_stop` while a UART or I2C transfer is in progress distorts or freezes that transfer's timeout.
 - The timeout guards in `bm_rcc_clock_init` have never executed their failure path. They are bounded loops that have only been observed succeeding, so the guards themselves are untested.
 - The clock frequency measurement has not been falsified. Reading 144 MHz confirms the clock only if the setup would have reported something else had the clock differed; deliberately programming a wrong `N` and confirming the measured frequency moves proportionally is the step that would establish that.
 - `RCC_INIT_TIMEOUT_CYCLES` is a single iteration budget shared by four poll loops whose specified settling times differ by orders of magnitude. It is not derived from datasheet timings.
@@ -391,7 +442,7 @@ The discrepancy surfaced during hardware re-verification after the reset read-ba
 
 ## Notes
 
-- `bm_` prefix is used on all driver functions to avoid linker collisions with the Pico SDK
+- `bm_` prefix is used on all driver functions to avoid linker collisions with the Pico SDK. On the STM32, caller-facing GPIO constants are also prefixed `BM_GPIO_` to stay clear of the HAL's `GPIO_*` macros
 - `pico_runtime` is used instead of `pico_stdlib` to avoid name conflicts with driver functions
 - The Pico SDK remaps `SysTick_Handler` to `isr_systick`, so `isr_systick` holds the handler body and `SysTick_Handler` is a GCC alias to it for the STM32 vector table
 - `pico_runtime` sets the system clock to 125 MHz on startup, so `SYSTICK_TICKS_PER_MS` is set to `125000`
