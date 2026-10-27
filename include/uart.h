@@ -20,13 +20,9 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include "uart_platform.h"
 
 // returns false on error, true on success
-
-// initialize UART peripheral — must be called before any other UART functions
-// tx_pin and rx_pin must be a valid UART-capable GPIO pair for the target peripheral
-// returns false if pin combination is invalid or peripheral is already enabled
-bool bm_uart_init(uint8_t *uart_num, uint32_t baud_rate, uint8_t tx_pin, uint8_t rx_pin);
 
 // transmit a single byte — blocks until TX FIFO has space
 bool bm_uart_write_byte(uint8_t uart_num,uint8_t byte);
