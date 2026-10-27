@@ -291,7 +291,7 @@ Targets: `blink_test`, `clock_test`, `gpio_test`, `uart_test`, `i2c_test`, `bmp3
 
 `blink_test` runs on the HSI16 reset clock with a busy-wait delay and depends on nothing beyond startup. `clock_test` configures the clock tree and SysTick, blinks PA5 from the millisecond timebase, and drives MCO on PA8 for frequency measurement. Neither uses the HAL.
 
-The other four exercise the HAL-backed drivers on the Nucleo-G431RB. Output goes to the ST-LINK virtual COM port (USART2 on PA2/PA3, 115200 8N1). The BMP390 connects to I2C1 on PB9 (SDA, D14) and PB8 (SCL, D15). `gpio_test` toggles LD2 (PA5) and stops while the B1 button (PC13) is held. `i2c_test` reads CHIP_ID, then checks that a NAK to an absent address fails and recovers. `bmp390_test` runs the same sequence as the Pico version.
+The other four exercise the HAL-backed drivers on the Nucleo-G431RB. Output goes to USART1 on PC4 (TX) / PC5 (RX) at 115200 8N1, read with an external USB-serial adapter such as the Raspberry Pi Debug Probe's UART port. PA2/PA3 are not used: on the Nucleo they belong to the on-board ST-LINK virtual COM port, and a register read over SWD showed USART2 transmitting correctly on PA2 while nothing reached the board header. The BMP390 connects to I2C1 on PB9 (SDA, D14) and PB8 (SCL, D15). `gpio_test` toggles LD2 (PA5) and stops while the B1 button (PC13) is held. `i2c_test` reads CHIP_ID, then checks that a NAK to an absent address fails and recovers. `bmp390_test` runs the same sequence as the Pico version.
 
 ### Build and run host tests
 
@@ -426,7 +426,7 @@ The discrepancy surfaced during hardware re-verification after the reset read-ba
 - SysTick's absolute tick accuracy is not asserted by any automated test. See [SysTick](#systick).
 - `include/systick.h` includes `systick_platform.h`, which is platform-specific, so the portable header is not currently free of platform dependencies. `SYSTICK_TICKS_PER_MS` is a build-configuration constant rather than something callers pass in, so it does not fit the stated `_platform.h` rule. Open.
 - The STM32 GPIO, UART, and I2C drivers and their Nucleo test binaries build, but none has been flashed or verified on hardware. `drivers/bmp390/` has not run on the STM32 yet.
-- The STM32 pin pair tables in `uart_reg.h` and `i2c_reg.h` were taken from the STM32G431xx datasheet (DS12589) alternate function table and have not been checked pin by pin on hardware. The pairs the Nucleo tests use (PA2/PA3, PB8/PB9) are the first to check.
+- The STM32 pin pair tables in `uart_reg.h` and `i2c_reg.h` were taken from the STM32G431xx datasheet (DS12589) alternate function table and have not been checked pin by pin on hardware. The pairs the Nucleo tests use (PC4/PC5, PB8/PB9) are the first to check.
 - The STM32 I2C `TIMINGR` values are derived from RM0440's timing formulas, not from ST's timing tool, and the SCL frequency has not been measured.
 - Fast mode plus (1 MHz) is not supported on the STM32. It needs the SYSCFG FM+ drive enable and its own `TIMINGR`, so `bm_i2c_init` rejects any speed above `I2C_MODE_FAST`. The RP2040 supports it.
 - UART4 is in the STM32 instance table but unreachable. Its only listed pins on this package, PC10/PC11, also carry USART3, and the pin pair lookup takes the first match.

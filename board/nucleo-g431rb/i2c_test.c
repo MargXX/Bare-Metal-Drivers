@@ -12,7 +12,7 @@
  * i2c_test — HAL-backed I2C on the Nucleo-G431RB.
  *
  * Reads the BMP390 CHIP_ID over I2C1 on PB9 (SDA, D14) / PB8 (SCL, D15)
- * and reports over the ST-LINK virtual COM port (USART2, PA2/PA3).
+ * and reports over USART1, PC4 (TX) / PC5 (RX), at 115200 8N1.
  *
  * LED solid on: pass. Slow blink: read failed or wrong ID. Fast blink: init failed.
  */
@@ -21,8 +21,8 @@
 #define I2C_ID_REG_ADDR 0x00
 #define I2C_ID_REG_VAL  0x60
 
-#define UART_TX_PIN BM_GPIO_PIN(BM_GPIO_PORT_A, 2)
-#define UART_RX_PIN BM_GPIO_PIN(BM_GPIO_PORT_A, 3)
+#define UART_TX_PIN BM_GPIO_PIN(BM_GPIO_PORT_C, 4)
+#define UART_RX_PIN BM_GPIO_PIN(BM_GPIO_PORT_C, 5)
 #define I2C_SDA_PIN BM_GPIO_PIN(BM_GPIO_PORT_B, 9)
 #define I2C_SCL_PIN BM_GPIO_PIN(BM_GPIO_PORT_B, 8)
 

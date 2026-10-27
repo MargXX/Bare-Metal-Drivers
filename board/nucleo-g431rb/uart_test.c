@@ -8,16 +8,18 @@
 /*
  * uart_test — HAL-backed UART on the Nucleo-G431RB.
  *
- * PA2/PA3 (USART2) are wired to the ST-LINK virtual COM port, so output
- * appears on the host's serial monitor at 115200 8N1 with no extra wiring.
+ * USART1 on PC4 (TX) / PC5 (RX) at 115200 8N1, read through an external
+ * USB-serial adapter (adapter RX to PC4, adapter TX to PC5, shared GND).
+ * PA2/PA3 are not used: they belong to the on-board ST-LINK virtual COM port
+ * and did not reach the header on the test board.
  * Sends 0x55 once (alternating bits, easy to check on a logic analyzer),
  * then echoes any received byte between "Hello World" lines.
  *
  * LED solid on: init passed. Fast blink: init failed.
  */
 
-#define UART_TX_PIN BM_GPIO_PIN(BM_GPIO_PORT_A, 2)
-#define UART_RX_PIN BM_GPIO_PIN(BM_GPIO_PORT_A, 3)
+#define UART_TX_PIN BM_GPIO_PIN(BM_GPIO_PORT_C, 4)
+#define UART_RX_PIN BM_GPIO_PIN(BM_GPIO_PORT_C, 5)
 
 int main() {
     bool result = bm_rcc_clock_init();

@@ -16,12 +16,14 @@
  *
  * Same sequence as board/pico-devboard/bmp390_test.c. drivers/bmp390 is
  * compiled unchanged; only the bus underneath it differs.
- * Sensor on I2C1, PB9 (SDA, D14) / PB8 (SCL, D15). Output on the ST-LINK
- * virtual COM port (USART2, PA2/PA3) at 115200 8N1.
+ * Sensor on I2C1, PB9 (SDA, D14) / PB8 (SCL, D15). Output on USART1,
+ * PC4 (TX) / PC5 (RX), at 115200 8N1 to an external USB-serial adapter.
+ * PA2/PA3 are not used: they belong to the on-board ST-LINK virtual COM port
+ * and did not reach the header on the test board.
  */
 
-#define UART_TX_PIN BM_GPIO_PIN(BM_GPIO_PORT_A, 2)
-#define UART_RX_PIN BM_GPIO_PIN(BM_GPIO_PORT_A, 3)
+#define UART_TX_PIN BM_GPIO_PIN(BM_GPIO_PORT_C, 4)
+#define UART_RX_PIN BM_GPIO_PIN(BM_GPIO_PORT_C, 5)
 #define I2C_SDA_PIN BM_GPIO_PIN(BM_GPIO_PORT_B, 9)
 #define I2C_SCL_PIN BM_GPIO_PIN(BM_GPIO_PORT_B, 8)
 
@@ -53,7 +55,7 @@ int main() {
 
     //uart and i2c setup
     uint8_t uart_num;
-    result = bm_uart_init(&uart_num, 115200, UART_TX_PIN, UART_RX_PIN); // PA2/PA3, ST-LINK VCP
+    result = bm_uart_init(&uart_num, 115200, UART_TX_PIN, UART_RX_PIN); // PC4/PC5, USART1
     if (!result) { blink_loop(100); } //very slow blink on init failure
     uint8_t i2c_num;
     result = bm_i2c_init(&i2c_num, I2C_MODE_STANDARD, I2C_SDA_PIN, I2C_SCL_PIN); // PB9/PB8, D14/D15
