@@ -20,6 +20,9 @@ if(PLATFORM STREQUAL "stm32g4")
     include_directories(${CMAKE_SOURCE_DIR}/platform/stm32g4/cmsis/core/Include)
     include_directories(${CMAKE_SOURCE_DIR}/platform/stm32g4/cmsis/device)
     include_directories(${CMAKE_SOURCE_DIR}/platform/stm32g4/rcc)
+    # vendored ST HAL — SYSTEM so -Werror on project sources does not apply to its headers
+    include_directories(SYSTEM ${CMAKE_SOURCE_DIR}/platform/stm32g4/hal/Inc)
+    add_compile_definitions(STM32G431xx USE_HAL_DRIVER)
 endif()
 
 project(RP2040_Bare_Metal_Drivers)
@@ -33,8 +36,13 @@ include_directories(${CMAKE_SOURCE_DIR}/platform/${PLATFORM}/systick)
 include_directories(${CMAKE_SOURCE_DIR}/platform/${PLATFORM}/uart)
 include_directories(${CMAKE_SOURCE_DIR}/platform/${PLATFORM}/i2c)
 include_directories(${CMAKE_SOURCE_DIR}/drivers/bmp390)
-include_directories(${CMAKE_SOURCE_DIR}/board/pico-devboard)
-include_directories(${CMAKE_SOURCE_DIR}/board/nucleo-g431rb)
+# each board has its own debug_print.h / debug_blink.h, so only one board
+# directory can be on the include path
+if(PLATFORM STREQUAL "stm32g4")
+    include_directories(${CMAKE_SOURCE_DIR}/board/nucleo-g431rb)
+else()
+    include_directories(${CMAKE_SOURCE_DIR}/board/pico-devboard)
+endif()
 
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
@@ -46,6 +54,33 @@ set(BM_WARNING_FLAGS -Wall -Wextra -Werror)
 if(PLATFORM STREQUAL "rp2040")
     include(pico_sdk_import.cmake)
     pico_sdk_init()
+endif()
+
+# ST HAL backend for the STM32 peripheral drivers. Built as a static library
+# with no project warning flags, since it is vendored and unmodified. Only the
+# modules enabled in platform/stm32g4/stm32g4xx_hal_conf.h are listed.
+if(PLATFORM STREQUAL "stm32g4")
+    set(BM_STM32_HAL_SRC ${CMAKE_SOURCE_DIR}/platform/stm32g4/hal/Src)
+    add_library(stm32g4_hal STATIC
+        ${BM_STM32_HAL_SRC}/stm32g4xx_hal.c
+        ${BM_STM32_HAL_SRC}/stm32g4xx_hal_cortex.c
+        ${BM_STM32_HAL_SRC}/stm32g4xx_hal_dma.c
+        ${BM_STM32_HAL_SRC}/stm32g4xx_hal_dma_ex.c
+        ${BM_STM32_HAL_SRC}/stm32g4xx_hal_flash.c
+        ${BM_STM32_HAL_SRC}/stm32g4xx_hal_flash_ex.c
+        ${BM_STM32_HAL_SRC}/stm32g4xx_hal_gpio.c
+        ${BM_STM32_HAL_SRC}/stm32g4xx_hal_i2c.c
+        ${BM_STM32_HAL_SRC}/stm32g4xx_hal_i2c_ex.c
+        ${BM_STM32_HAL_SRC}/stm32g4xx_hal_pwr.c
+        ${BM_STM32_HAL_SRC}/stm32g4xx_hal_pwr_ex.c
+        ${BM_STM32_HAL_SRC}/stm32g4xx_hal_rcc.c
+        ${BM_STM32_HAL_SRC}/stm32g4xx_hal_rcc_ex.c
+        ${BM_STM32_HAL_SRC}/stm32g4xx_hal_uart.c
+        ${BM_STM32_HAL_SRC}/stm32g4xx_hal_uart_ex.c
+    )
+    # one section per function so --gc-sections can drop the HAL code no
+    # driver calls; scoped to the HAL so existing targets build unchanged
+    target_compile_options(stm32g4_hal PRIVATE -ffunction-sections -fdata-sections)
 endif()
 
 # Defines an executable target from its own source list, applies strict
@@ -113,6 +148,53 @@ else() #stm32g431rb tests
         platform/stm32g4/rcc/rcc.c
         board/nucleo-g431rb/clock_test.c
     )
+
+    # HAL-backed peripheral driver tests. Every one needs the clock tree,
+    # the SysTick timebase, and the HAL glue that ties the HAL to both.
+    set(BM_STM32_HAL_BASE
+        platform/cortex-m/systick/systick.c
+        platform/stm32g4/rcc/rcc.c
+        platform/stm32g4/hal_glue.c
+    )
+
+    bm_add_test_executable(gpio_test
+        ${BM_STM32_HAL_BASE}
+        platform/${PLATFORM}/gpio/gpio.c
+        board/nucleo-g431rb/gpio_test.c
+    )
+    target_link_libraries(gpio_test stm32g4_hal)
+
+    bm_add_test_executable(uart_test
+        ${BM_STM32_HAL_BASE}
+        platform/${PLATFORM}/gpio/gpio.c
+        platform/${PLATFORM}/uart/uart.c
+        board/nucleo-g431rb/debug_blink.c
+        board/nucleo-g431rb/uart_test.c
+    )
+    target_link_libraries(uart_test stm32g4_hal)
+
+    bm_add_test_executable(i2c_test
+        ${BM_STM32_HAL_BASE}
+        platform/${PLATFORM}/gpio/gpio.c
+        platform/${PLATFORM}/i2c/i2c.c
+        platform/${PLATFORM}/uart/uart.c
+        board/nucleo-g431rb/debug_print.c
+        board/nucleo-g431rb/debug_blink.c
+        board/nucleo-g431rb/i2c_test.c
+    )
+    target_link_libraries(i2c_test stm32g4_hal)
+
+    bm_add_test_executable(bmp390_test
+        ${BM_STM32_HAL_BASE}
+        platform/${PLATFORM}/gpio/gpio.c
+        platform/${PLATFORM}/i2c/i2c.c
+        platform/${PLATFORM}/uart/uart.c
+        drivers/bmp390/bmp390.c
+        board/nucleo-g431rb/debug_print.c
+        board/nucleo-g431rb/debug_blink.c
+        board/nucleo-g431rb/bmp390_test.c
+    )
+    target_link_libraries(bmp390_test stm32g4_hal m)
 endif()
 
 # using OpenOCD for flashing instead of picotool, so not generating uf2 files
