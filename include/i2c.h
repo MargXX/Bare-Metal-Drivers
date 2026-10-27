@@ -1,17 +1,23 @@
 /**
  * @file i2c.h
- * @brief I2C master driver API for the RP2040
+ * @brief Portable I2C master transfer API.
  *
- * Provides bare-metal I2C master communication using direct register access.
- * No HAL abstraction — all configuration is written against the RP2040 reference manual.
+ * Declares the I2C master operations whose signature and semantics are the
+ * same on every target: write, read, combined write-read with a repeated
+ * START, bus-busy polling, peripheral recovery, and handle validation.
  *
- * Clock assumption: 125MHz processor clock (set by pico_runtime on startup).
- *   Standard mode:  100 kHz — update IC_SS_SCL_HCNT/LCNT accordingly
- *   Fast mode:      400 kHz — update IC_FS_SCL_HCNT/LCNT accordingly
+ * Initialization and register-level status are not portable and are declared
+ * in the target's i2c_platform.h, along with the bus speed constants, whose
+ * register encodings are vendor-specific. This header pulls that one in so
+ * callers need only one include; CMake selects which target resolves.
  *
- *   Update I2C_BASE and GPIO pin assignments if using I2C1 or alternate pins.
+ * i2c_num identifies an initialized peripheral. It is produced by the
+ * platform's bm_i2c_init and has no meaning before that call.
  *
- * Reference: RP2040 Datasheet, Section 4.3
+ * Device addresses are 7-bit and right-aligned. The direction bit is supplied
+ * by the driver and must not be included by the caller.
+ *
+ * All functions return true on success, false on error.
  */
 
 #ifndef I2C_H
@@ -20,11 +26,8 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+
 #include "i2c_platform.h"
-
-
-// returns false on error, true on success
-
 
 // transmit len bytes from buf to device at 7-bit addr
 // generates START, sends address + write bit, sends data, generates STOP

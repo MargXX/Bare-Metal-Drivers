@@ -9,16 +9,19 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Warning flags applied to project source files only (never the SDK) —
 set(BM_WARNING_FLAGS -Wall -Wextra -Werror)
 
-include_directories(${CMAKE_SOURCE_DIR}/../platform/rp2040/gpio)
-include_directories(${CMAKE_SOURCE_DIR}/../platform/rp2040/systick)
-include_directories(${CMAKE_SOURCE_DIR}/../SysTick)
-include_directories(${CMAKE_SOURCE_DIR}/../UART)
-include_directories(${CMAKE_SOURCE_DIR}/../I2C)
-include_directories(${CMAKE_SOURCE_DIR}/../BMP390)
-include_directories(${CMAKE_SOURCE_DIR}/../drivers/bmp390)
-include_directories(${CMAKE_SOURCE_DIR}/../include)
-include_directories(${CMAKE_SOURCE_DIR}/../board/pico-devboard/Debug)
+# Header search paths, in dependency order. The host suite is a third
+# implementation of the portable contract, so it sees include/ and drivers/
+# exactly as an MCU target does — plus the RP2040 platform headers, which the
+# portable headers reach for init, get_status, and the speed constants.
 
+# Tier 1: portable contracts and portable device logic.
+include_directories(${CMAKE_SOURCE_DIR}/../include)
+include_directories(${CMAKE_SOURCE_DIR}/../drivers/bmp390)
+
+# Tier 2: RP2040 platform headers.
+include_directories(${CMAKE_SOURCE_DIR}/../platform/rp2040/i2c)
+include_directories(${CMAKE_SOURCE_DIR}/../platform/rp2040/uart)
+include_directories(${CMAKE_SOURCE_DIR}/../platform/rp2040/systick)
 
 
 add_executable(bmp390_test_host
@@ -30,22 +33,6 @@ add_executable(bmp390_test_host
 
 target_compile_options(bmp390_test_host PRIVATE ${BM_WARNING_FLAGS})
 
-target_include_directories(bmp390_test_host
-    PRIVATE ../platform/rp2040
-)
-
-target_include_directories(bmp390_test_host
-    PRIVATE ../platform/rp2040/i2c
-)
-
-target_include_directories(bmp390_test_host
-    PRIVATE ../drivers/bmp390
-)
-
-target_include_directories(bmp390_test_host
-    PRIVATE ../I2C
-)
-
 target_link_libraries(bmp390_test_host
     PRIVATE m
 )
@@ -53,5 +40,3 @@ target_link_libraries(bmp390_test_host
 enable_testing()
 
 add_test(NAME bmp390 COMMAND bmp390_test_host)
-
-

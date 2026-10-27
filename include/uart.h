@@ -1,17 +1,19 @@
 /**
  * @file uart.h
- * @brief UART driver API for the RP2040
+ * @brief Portable UART transfer API.
  *
- * Provides bare-metal UART communication using direct register access.
- * No HAL abstraction — all configuration is written against the RP2040 reference manual.
+ * Declares the UART operations whose signature and semantics are the same on
+ * every target: byte and buffer transfer, string transmit, and non-blocking
+ * FIFO status checks.
  *
- * Clock assumption: 125MHz processor clock (set by pico_runtime on startup).
- *   Baud rate is derived from UARTIBRD and UARTFBRD — update both in uart.c
- *   if changing baud rate or clock source.
- * 
- *   Pin configuration: TX and RX pins are passed to bm_uart_init at runtime.
- *   UART peripheral is inferred from the pin pair — see uart_reg.h for valid combinations.
- * Reference: RP2040 Datasheet, Section 4.2
+ * Initialization and register-level status are not portable and are declared
+ * in the target's uart_platform.h, which this header pulls in so callers need
+ * only one include. CMake selects which target's platform header resolves.
+ *
+ * uart_num identifies an initialized peripheral. It is produced by the
+ * platform's bm_uart_init and has no meaning before that call.
+ *
+ * All functions return true on success, false on error.
  */
 
 #ifndef UART_H
@@ -20,12 +22,11 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+
 #include "uart_platform.h"
 
-// returns false on error, true on success
-
 // transmit a single byte — blocks until TX FIFO has space
-bool bm_uart_write_byte(uint8_t uart_num,uint8_t byte);
+bool bm_uart_write_byte(uint8_t uart_num, uint8_t byte);
 
 // transmit len bytes from buf — blocks until all bytes are written
 bool bm_uart_write(uint8_t uart_num, const uint8_t *buf, size_t len);
@@ -46,6 +47,5 @@ bool bm_uart_tx_full(uint8_t uart_num);
 bool bm_uart_rx_ready(uint8_t uart_num);
 
 //add functions later to adjust settings like baud rate, parity, stop bits, or to disable/enable interrupts as needed
-
 
 #endif /* UART_H */
