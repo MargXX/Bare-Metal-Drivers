@@ -6,7 +6,7 @@ A bare-metal driver library in C for ARM Cortex-M. The RP2040 drivers are writte
 
 The RP2040 driver stack is complete for its current scope and hardware-verified. A second target, the STM32G431RB (Cortex-M4F), is in progress. Its startup infrastructure, system clock tree, and SysTick timebase are hand-written at register level and hardware-verified. Its GPIO, UART, and I2C drivers implement the same public headers as the RP2040 but use the ST HAL as their backend; see [STM32 HAL backend](#stm32-hal-backend).
 
-This driver stack is the foundation layer of a larger flight computer project: a custom PCB with a full application layer. The repository is organized into portable, platform-specific, and board-specific tiers so that a second MCU target can be added without rewriting driver logic or public API contracts. `include/uart.h`, `include/i2c.h`, and `include/systick.h` now have implementations behind them on both targets, and `drivers/bmp390/` builds unchanged for the STM32. It has not yet run on STM32 hardware.
+This driver stack is the foundation layer of a larger flight computer project: a custom PCB with a full application layer. The repository is organized into portable, platform-specific, and board-specific tiers so that a second MCU target can be added without rewriting driver logic or public API contracts. `include/uart.h`, `include/i2c.h`, and `include/systick.h` now have implementations behind them on both targets, and `drivers/bmp390/` runs unchanged on both, verified on hardware with the same sensor on each target.
 
 ---
 
@@ -34,12 +34,14 @@ Except for SysTick, all of the above target the RP2040.
 | CMake toolchain file | Complete | Cortex-M4F, hard float ABI, separate from the RP2040 build. |
 | System clock tree | Complete | 144 MHz SYSCLK from HSI16 through the main PLL. Hardware-verified by direct frequency measurement; see below. |
 | SysTick | Complete | Shared `platform/cortex-m/` driver, with `SYSTICK_TICKS_PER_MS` derived from the clock tree's published constant. |
-| GPIO | Built, not hardware-verified | ST HAL backend. Platform-specific header, as on the RP2040. |
-| UART | Built, not hardware-verified | ST HAL backend behind `include/uart.h`. USART1-3, LPUART1. |
-| I2C | Built, not hardware-verified | ST HAL backend behind `include/i2c.h`. I2C1-3, standard and fast mode. |
-| BMP390 (device) | Built, not hardware-verified | `drivers/bmp390/` compiled unchanged against the STM32 I2C driver. |
+| GPIO | Partially verified | ST HAL backend. Platform-specific header, as on the RP2040. Output and alternate-function setup verified on hardware through the LED and the UART and I2C pins. Input (`gpio_test`, B1 button) not yet run. |
+| UART | Complete | ST HAL backend behind `include/uart.h`. USART1-3, LPUART1. Verified on hardware: TX and RX echo on USART1 (PC4/PC5) at 115200 through an external USB-serial adapter. |
+| I2C | Complete | ST HAL backend behind `include/i2c.h`. I2C1-3, standard and fast mode. Verified on hardware in standard mode on I2C1 (PB8/PB9): BMP390 CHIP_ID read, NAK on an absent address returning `HAL_I2C_ERROR_AF` with the peripheral recovered afterwards. Fast mode not yet run. |
+| BMP390 (device) | Complete | `drivers/bmp390/` compiled unchanged against the STM32 I2C driver. Full on-target suite passes: init, soft reset, configure, data-ready, normal and forced reads. Ambient readings 102,505 Pa and 25 °C. |
 
-Verified end to end: build, flash over SWD, an LED driven by direct RCC and GPIO register writes, and a 1 Hz blink driven by the SysTick millisecond timebase, all on real hardware. The HAL-backed peripheral drivers compile cleanly under the project's `-Wall -Wextra -Werror` and have on-target test binaries, but none has been flashed yet.
+Verified end to end: build, flash over SWD, an LED driven by direct RCC and GPIO register writes, and a 1 Hz blink driven by the SysTick millisecond timebase, all on real hardware. The HAL-backed UART and I2C drivers and the unmodified BMP390 driver are verified on the same board, flashed over SWD with a CMSIS-DAP probe, with output read through that probe's UART bridge.
+
+**UART pin choice.** The tests first used USART2 on PA2/PA3, which the Nucleo routes to the on-board ST-LINK virtual COM port. Nothing reached the header pin. A register read over SWD separated firmware from wiring: `USART2_CR1 = 0x0D` (UE, TE, RE), `BRR = 0x4E2` (144 MHz / 1250 = 115200), `ISR` with TEACK and REACK set, and the PC in the delay between transmissions. With the peripheral confirmed transmitting, output moved to USART1 on PC4/PC5, which no on-board circuit claims.
 
 Interrupt ordering and reserved-slot positions were cross-checked against ST's own `startup_stm32g431rbtx.s` from STM32CubeG4, rather than against RM0440's table, because the vector map is part-specific rather than shared across the G4 family.
 
@@ -411,6 +413,8 @@ The reset restores the register; only the documented value differs. Two observat
 
 Both destination bytes were poisoned before the reads and both `bm_i2c_write_read` return values were checked. `OSR` also reads `0x00` immediately after `bm_bmp390_init`, which soft-resets internally. Both observations follow a soft reset, so this is a replication rather than an independent confirmation, but it rules out an artifact of the register history in the reset test specifically.
 
+The STM32G431RB port reproduces it: the same on-target reset test, running on the HAL-backed I2C driver, reads `OSR = 0x00` and `PWR_CTRL = 0x00` after the soft reset. The sensor is the same part, so this does not rule out a property of that one device, but it does rule out an artifact of the RP2040 I2C implementation.
+
 The observed values are named constants in `bmp390_reg.h`, annotated with their provenance and shared by the driver, the on-target test, and the host-side fake.
 
 The discrepancy surfaced during hardware re-verification after the reset read-back was added to `bm_bmp390_soft_reset`. Because `bm_bmp390_init` calls that function, the wrong constant failed initialization and every function guarded on `initialized`. The host suite did not detect it: the fake restored the same documented value the driver asserted.
@@ -425,8 +429,8 @@ The discrepancy surfaced during hardware re-verification after the reset read-ba
 - `bm_bmp390_init` does not populate `dev->cfg`. That field is indeterminate until `bm_bmp390_configure` returns `true`, and `configured` is its validity flag. Every driver path that reads `cfg` checks `configured` first, so no driver code can observe an indeterminate value, but callers must not read it before configuring.
 - SysTick's absolute tick accuracy is not asserted by any automated test. See [SysTick](#systick).
 - `include/systick.h` includes `systick_platform.h`, which is platform-specific, so the portable header is not currently free of platform dependencies. `SYSTICK_TICKS_PER_MS` is a build-configuration constant rather than something callers pass in, so it does not fit the stated `_platform.h` rule. Open.
-- The STM32 GPIO, UART, and I2C drivers and their Nucleo test binaries build, but none has been flashed or verified on hardware. `drivers/bmp390/` has not run on the STM32 yet.
-- The STM32 pin pair tables in `uart_reg.h` and `i2c_reg.h` were taken from the STM32G431xx datasheet (DS12589) alternate function table and have not been checked pin by pin on hardware. The pairs the Nucleo tests use (PC4/PC5, PB8/PB9) are the first to check.
+- `gpio_test` has not been run, so the STM32 GPIO input path is unverified. I2C fast mode has not been run on the STM32.
+- The STM32 pin pair tables in `uart_reg.h` and `i2c_reg.h` were taken from the STM32G431xx datasheet (DS12589) alternate function table and have not been checked pin by pin on hardware. Only USART1 on PC4/PC5 and I2C1 on PB8/PB9 are hardware-verified. USART2 on PA2/PA3 was confirmed configured and transmitting by register read, but its output did not reach the Nucleo header.
 - The STM32 I2C `TIMINGR` values are derived from RM0440's timing formulas, not from ST's timing tool, and the SCL frequency has not been measured.
 - Fast mode plus (1 MHz) is not supported on the STM32. It needs the SYSCFG FM+ drive enable and its own `TIMINGR`, so `bm_i2c_init` rejects any speed above `I2C_MODE_FAST`. The RP2040 supports it.
 - UART4 is in the STM32 instance table but unreachable. Its only listed pins on this package, PC10/PC11, also carry USART3, and the pin pair lookup takes the first match.
