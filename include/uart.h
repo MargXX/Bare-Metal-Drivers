@@ -45,10 +45,6 @@ bool bm_uart_tx_full(uint8_t uart_num);
 // returns true if the RX FIFO has data available — use to poll before reading
 bool bm_uart_rx_ready(uint8_t uart_num);
 
-// reads UARTRIS (raw interrupt status) and UARTFR (flag register) into status_out and flags_out
-// useful for diagnosing framing errors, overrun, break conditions, or FIFO state
-bool bm_uart_get_status(uint8_t uart_num, uint32_t *status_out, uint32_t *flags_out);
-
 //add functions later to adjust settings like baud rate, parity, stop bits, or to disable/enable interrupts as needed
 
 
