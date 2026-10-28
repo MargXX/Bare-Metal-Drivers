@@ -37,6 +37,10 @@
 #include <math.h> // for ldexpf, which gives us the power-of-two scaling 
 #include "bmp390_chip.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // All functions return false on error, true on success (matches the stack
 // convention). Output values are written through caller-supplied pointers.
 
@@ -190,5 +194,9 @@ bool bm_bmp390_default_config(bmp390_config_t *cfg);
 
 // add later as needed: FIFO read path, interrupt (INT_CTRL) configuration,
 // altitude conversion from pressure.
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* BMP390_H */

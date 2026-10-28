@@ -27,6 +27,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "i2c_platform.h"
 
 // transmit len bytes from buf to device at 7-bit addr
@@ -54,5 +58,9 @@ bool bm_i2c_reset(uint8_t i2c_num);
 bool bm_i2c_is_valid(uint8_t i2c_num);
 
 //add functions later to adjust settings like clock speed, addressing mode, or to disable/enable interrupts as needed
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* I2C_H */

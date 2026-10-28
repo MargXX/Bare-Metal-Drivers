@@ -21,6 +21,10 @@
 
 #include "systick_platform.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 
 // returns false if error, true if functioned correctly
@@ -52,5 +56,9 @@ bool bm_systick_timeout_elapsed(uint32_t start_ms, uint32_t timeout_ms);
 // SysTick exception handler — must be defined in systick.c with this exact name
 // increments the internal volatile tick counter each millisecond
 void isr_systick(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* SYSTICK_H */
