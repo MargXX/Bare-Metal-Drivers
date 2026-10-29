@@ -195,6 +195,17 @@ else() #stm32g431rb tests
         board/nucleo-g431rb/bmp390_test.c
     )
     target_link_libraries(bmp390_test stm32g4_hal m)
+
+    bm_add_test_executable(por_test
+        ${BM_STM32_HAL_BASE}
+        platform/${PLATFORM}/gpio/gpio.c
+        platform/${PLATFORM}/i2c/i2c.c
+        platform/${PLATFORM}/uart/uart.c
+        board/nucleo-g431rb/debug_print.c
+        board/nucleo-g431rb/debug_blink.c
+        board/nucleo-g431rb/por_test.c
+    )
+    target_link_libraries(por_test stm32g4_hal)
 endif()
 
 # using OpenOCD for flashing instead of picotool, so not generating uf2 files
