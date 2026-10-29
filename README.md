@@ -384,7 +384,7 @@ The fake's model of device behaviour is itself derived from the datasheet. The r
 
 - **RP2040 Build**: installs the ARM toolchain, clones the pinned SDK, and cross-compiles every target.
 - **STM32G4 Build**: installs the ARM toolchain and cross-compiles every STM32 target, including the vendored HAL. No SDK clone is needed.
-- **Host Unit Tests**: configures the `tests/` project with the native compiler and runs the Layer 1 suite through CTest.
+- **Host Unit Tests**: configures the `tests/` project with the native compiler and runs the Layer 1 suite through CTest, built with AddressSanitizer and UndefinedBehaviorSanitizer. `-fno-sanitize-recover=all` makes any sanitizer report fail the run. The sanitizers apply to the host build only, since the ARM toolchains ship no sanitizer runtime.
 
 The jobs use different toolchains and do not depend on each other, so they run in parallel and report separately.
 

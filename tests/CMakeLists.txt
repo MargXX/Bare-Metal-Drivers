@@ -31,7 +31,12 @@ add_executable(bmp390_test_host
     unity/unity.c
 )
 
-target_compile_options(bmp390_test_host PRIVATE ${BM_WARNING_FLAGS})
+# ASan + UBSan on the host build only — the ARM toolchains ship no sanitizer
+# runtime. no-recover makes any UBSan report fail the test run.
+set(BM_SANITIZE_FLAGS -fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all)
+
+target_compile_options(bmp390_test_host PRIVATE ${BM_WARNING_FLAGS} ${BM_SANITIZE_FLAGS})
+target_link_options(bmp390_test_host PRIVATE ${BM_SANITIZE_FLAGS})
 
 target_link_libraries(bmp390_test_host
     PRIVATE m
