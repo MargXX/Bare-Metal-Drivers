@@ -12,8 +12,9 @@
 /*
  * por_test — cold power-on register state of the BMP390 (or BMP388).
  *
- * Measures OSR (0x1C) and PWR_CTRL (0x1B) at a true power-on, before anything
- * is written to the sensor, then again after a soft reset. drivers/bmp390 is
+ * Records CHIP_ID and REV_ID, then measures OSR (0x1C) and PWR_CTRL (0x1B)
+ * at a true power-on, before anything is written to the sensor, then again
+ * after a soft reset. drivers/bmp390 is
  * NOT used: bm_bmp390_init soft-resets internally and rejects any CHIP_ID
  * other than 0x60, so only raw bm_i2c reads and writes appear here.
  *
@@ -35,21 +36,25 @@
  * power-cycled, cold reads are invalid. Fast blink: init or bus failure.
  */
 
-#define SENSOR_ADDR      0x77
-#define BMP388_CHIP_ID   0x50
-#define POR_SENTINEL_OSR 0x15   // osr_t = x4, osr_p = x32: matches neither 0x00 nor 0x02
-#define POISON           0xA5
+#define SENSOR_ADDR_SDO_LOW  0x76
+#define SENSOR_ADDR_SDO_HIGH 0x77
+#define BMP388_CHIP_ID       0x50
+#define POR_SENTINEL_OSR     0x15   // osr_t = x4, osr_p = x32: matches neither 0x00 nor 0x02
+#define POISON               0xA5
 
 #define UART_TX_PIN BM_GPIO_PIN(BM_GPIO_PORT_C, 4)
 #define UART_RX_PIN BM_GPIO_PIN(BM_GPIO_PORT_C, 5)
 #define I2C_SDA_PIN BM_GPIO_PIN(BM_GPIO_PORT_B, 9)
 #define I2C_SCL_PIN BM_GPIO_PIN(BM_GPIO_PORT_B, 8)
 
+// set by the address probe in main; 0x77 unless only 0x76 answers
+static uint8_t sensor_addr = SENSOR_ADDR_SDO_HIGH;
+
 
 // raw single-register read, buffer poisoned so a short read cannot pass as data
 static bool read_reg(uint8_t i2c_num, uint8_t uart_num, uint8_t reg, const char *label, uint8_t *out) {
     *out = POISON;
-    bool result = bm_i2c_write_read(i2c_num, SENSOR_ADDR, reg, out, 1);
+    bool result = bm_i2c_write_read(i2c_num, sensor_addr, reg, out, 1);
     bm_debug_print_result(uart_num, result, label);
     if (result) {
         bm_debug_print_labeled_hex8(uart_num, label, *out);
@@ -65,7 +70,7 @@ static bool read_reg(uint8_t i2c_num, uint8_t uart_num, uint8_t reg, const char 
 
 static bool write_reg(uint8_t i2c_num, uint8_t uart_num, uint8_t reg, uint8_t value, const char *label) {
     uint8_t buf[2] = {reg, value};
-    bool result = bm_i2c_write(i2c_num, SENSOR_ADDR, buf, 2);
+    bool result = bm_i2c_write(i2c_num, sensor_addr, buf, 2);
     bm_debug_print_result(uart_num, result, label);
     return result;
 }
@@ -91,11 +96,22 @@ int main() {
     bm_debug_print_result(uart_num, result, "I2C init");
     if (!result) { blink_loop(50); }
 
+    // ---- address probe: CHIP_ID at both SDO addresses, read-only ----
+    // A NAK on every read says nothing about why; this separates "answers at
+    // the other address" from "not answering at all".
+    uint8_t probe_buf;
+    bool ack_low = bm_i2c_write_read(i2c_num, SENSOR_ADDR_SDO_LOW, BMP390_REG_CHIP_ID, &probe_buf, 1);
+    bm_debug_print_result(uart_num, ack_low, "ACK at 0x76 (SDO low)");
+    bool ack_high = bm_i2c_write_read(i2c_num, SENSOR_ADDR_SDO_HIGH, BMP390_REG_CHIP_ID, &probe_buf, 1);
+    bm_debug_print_result(uart_num, ack_high, "ACK at 0x77 (SDO high)");
+    if (ack_low && !ack_high) { sensor_addr = SENSOR_ADDR_SDO_LOW; }
+
     // ---- phase 1: cold reads, nothing written to the sensor yet ----
     // OSR and PWR_CTRL first, before EVENT, so no read of ours precedes them
     // that could plausibly disturb state.
-    uint8_t chip_id, cold_osr, cold_pwr_ctrl, cold_event, cold_err;
+    uint8_t chip_id, rev_id, cold_osr, cold_pwr_ctrl, cold_event, cold_err;
     result = read_reg(i2c_num, uart_num, BMP390_REG_CHIP_ID, "CHIP_ID", &chip_id);
+    result = result && read_reg(i2c_num, uart_num, BMP390_REG_REV_ID, "REV_ID", &rev_id);
     result = result && read_reg(i2c_num, uart_num, BMP390_REG_OSR, "cold OSR", &cold_osr);
     result = result && read_reg(i2c_num, uart_num, BMP390_REG_PWR_CTRL, "cold PWR_CTRL", &cold_pwr_ctrl);
     result = result && read_reg(i2c_num, uart_num, BMP390_REG_ERR_REG, "cold ERR_REG", &cold_err);

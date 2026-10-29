@@ -418,7 +418,7 @@ The STM32G431RB port reproduces it: the same on-target reset test, running on th
 
 #### Cold power-on capture
 
-Every observation above follows a soft reset, which leaves open whether Table 25's default describes a true power-on state that the soft reset does not reproduce. `por_test` closes that gap. It does not use `drivers/bmp390/`, since `bm_bmp390_init` soft-resets internally. It reads `CHIP_ID`, `OSR`, `PWR_CTRL`, `ERR_REG`, and `EVENT` with raw `bm_i2c_write_read` calls before anything is written to the sensor. It then writes a non-default `OSR`, issues a soft reset, and reads the same registers again. Every destination byte is poisoned before its read.
+Every observation above follows a soft reset, which leaves open whether Table 25's default describes a true power-on state that the soft reset does not reproduce. `por_test` closes that gap. It does not use `drivers/bmp390/`, since `bm_bmp390_init` soft-resets internally. It first probes `CHIP_ID` at both SDO addresses, `0x76` and `0x77`, so a sensor that does not answer is distinguished from one at the other address. It then reads `CHIP_ID`, `REV_ID`, `OSR`, `PWR_CTRL`, `ERR_REG`, and `EVENT` with raw `bm_i2c_write_read` calls before anything is written to the sensor. It then writes a non-default `OSR`, issues a soft reset, and reads the same registers again. Every destination byte is poisoned before its read.
 
 A cold read is only meaningful if the sensor actually lost power, so the test carries its own control. Its last step writes a sentinel, `OSR = 0x15`, which survives an MCU reset or reflash but not a sensor power loss. A run is accepted as cold only if the sentinel is absent and `EVENT.por_detected` is set on the first read. Neither check is sufficient alone. `por_detected` is also set by a soft reset from an earlier image and stays set until `EVENT` is read, and the sentinel is only armed if a previous `por_test` run wrote it.
 
@@ -432,18 +432,20 @@ The reset-button run confirms the control rejects a sensor that kept its state. 
 
 The same procedure was then run on a BMP388, which shares the BMP390's register map. Accepted runs:
 
-| Part | `CHIP_ID` | Datasheet `OSR` default | Cold power-on `OSR` | `OSR` after soft reset | `PWR_CTRL` cold / reset |
-|---|---|---|---|---|---|
-| BMP390 | `0x60` | `0x02` (DS002, Table 25) | `0x00` | `0x00` | `0x00` / `0x00` |
-| BMP388 | `0x50` | `0x02` (BST-BMP388-DS001-07, Table 24) | `0x00` | `0x00` | `0x00` / `0x00` |
+| Part | `CHIP_ID` | `REV_ID` | Datasheet `OSR` default | Cold power-on `OSR` | `OSR` after soft reset | `PWR_CTRL` cold / reset |
+|---|---|---|---|---|---|---|
+| BMP390 | `0x60` | `0x01` | `0x02` (DS002, Table 25) | `0x00` | `0x00` | `0x00` / `0x00` |
+| BMP388 | `0x50` | not recorded | `0x02` (BST-BMP388-DS001-07, Table 24) | `0x00` | `0x00` | `0x00` / `0x00` |
 
 Reference: Bosch BMP388 datasheet, BST-BMP388-DS001-07, Revision 1.7 (11/2020), Table 24 memory map.
 
 On both parts the soft reset took `OSR` from the written `0x15` back to `0x00`, `STATUS` read `0x10` (`cmd_rdy`) after it, and `por_detected` was set again by the reset. Power-on and soft reset produce the same `OSR`, so the discrepancy is not a difference between the two reset paths: each device powers up at `0x00` where its datasheet documents `0x02`. `PWR_CTRL` matches the datasheet on both.
 
-Two parts from the same family disagreeing with their datasheets in the same way points toward the documentation rather than a property of one unit, but it is one unit of each part, and `REV_ID` has not been recorded for either. The consequence for the driver stands regardless: a BMP390 that powers up at the documented `0x02` would fail `bm_bmp390_soft_reset`'s exact-value check, and with it `bm_bmp390_init`.
+Two parts from the same family disagreeing with their datasheets in the same way points toward the documentation rather than a property of one unit, but it is one unit of each part. The BMP390 cold capture was repeated across three separate power cycles with the same result. The consequence for the driver stands regardless: a BMP390 that powers up at the documented `0x02` would fail `bm_bmp390_soft_reset`'s exact-value check, and with it `bm_bmp390_init`.
 
 On both parts, the first boot after a sensor-only power cycle NAKed on the `CHIP_ID` read, and the next B2 reset read normally. A NAKed read writes nothing to the sensor, so the following run is still a valid cold capture. The cause has not been investigated.
+
+The BMP388's `REV_ID` was not captured. After its cold capture, and before the `REV_ID` read was added to `por_test`, it stopped acknowledging at either `0x76` or `0x77`, while the BMP390 on the same wiring continued to answer. Its recorded results predate that failure and are unaffected.
 
 The observed values are named constants in `bmp390_reg.h`, annotated with their provenance and shared by the driver, the on-target test, and the host-side fake.
 
