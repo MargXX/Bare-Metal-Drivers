@@ -149,6 +149,7 @@ Bare-Metal-Drivers/
 │       ├── uart_test.c
 │       ├── i2c_test.c
 │       ├── bmp390_test.c
+│       ├── por_test.c          BMP390 cold power-on register capture
 │       ├── debug_blink.{h,c}
 │       └── debug_print.{h,c}
 │
@@ -289,11 +290,11 @@ cmake -B build-stm32g4 -DPLATFORM=stm32g4
 cmake --build build-stm32g4
 ```
 
-Targets: `blink_test`, `clock_test`, `gpio_test`, `uart_test`, `i2c_test`, `bmp390_test`.
+Targets: `blink_test`, `clock_test`, `gpio_test`, `uart_test`, `i2c_test`, `bmp390_test`, `por_test`.
 
 `blink_test` runs on the HSI16 reset clock with a busy-wait delay and depends on nothing beyond startup. `clock_test` configures the clock tree and SysTick, blinks PA5 from the millisecond timebase, and drives MCO on PA8 for frequency measurement. Neither uses the HAL.
 
-The other four exercise the HAL-backed drivers on the Nucleo-G431RB. Output goes to USART1 on PC4 (TX) / PC5 (RX) at 115200 8N1, read with an external USB-serial adapter such as the Raspberry Pi Debug Probe's UART port. PA2/PA3 are not used: on the Nucleo they belong to the on-board ST-LINK virtual COM port, and a register read over SWD showed USART2 transmitting correctly on PA2 while nothing reached the board header. The BMP390 connects to I2C1 on PB9 (SDA, D14) and PB8 (SCL, D15). `gpio_test` toggles LD2 (PA5) and stops while the B1 button (PC13) is held. `i2c_test` reads CHIP_ID, then checks that a NAK to an absent address fails and recovers. `bmp390_test` runs the same sequence as the Pico version.
+The other five exercise the HAL-backed drivers on the Nucleo-G431RB. Output goes to USART1 on PC4 (TX) / PC5 (RX) at 115200 8N1, read with an external USB-serial adapter such as the Raspberry Pi Debug Probe's UART port. PA2/PA3 are not used: on the Nucleo they belong to the on-board ST-LINK virtual COM port, and a register read over SWD showed USART2 transmitting correctly on PA2 while nothing reached the board header. The BMP390 connects to I2C1 on PB9 (SDA, D14) and PB8 (SCL, D15). `gpio_test` toggles LD2 (PA5) and stops while the B1 button (PC13) is held. `i2c_test` reads CHIP_ID, then checks that a NAK to an absent address fails and recovers. `bmp390_test` runs the same sequence as the Pico version. `por_test` reads the BMP390's register state at power-on with raw I2C transactions and no driver calls; see [cold power-on capture](#cold-power-on-capture).
 
 ### Build and run host tests
 
@@ -414,6 +415,35 @@ The reset restores the register; only the documented value differs. Two observat
 Both destination bytes were poisoned before the reads and both `bm_i2c_write_read` return values were checked. `OSR` also reads `0x00` immediately after `bm_bmp390_init`, which soft-resets internally. Both observations follow a soft reset, so this is a replication rather than an independent confirmation, but it rules out an artifact of the register history in the reset test specifically.
 
 The STM32G431RB port reproduces it: the same on-target reset test, running on the HAL-backed I2C driver, reads `OSR = 0x00` and `PWR_CTRL = 0x00` after the soft reset. The sensor is the same part, so this does not rule out a property of that one device, but it does rule out an artifact of the RP2040 I2C implementation.
+
+#### Cold power-on capture
+
+Every observation above follows a soft reset, which leaves open whether Table 25's default describes a true power-on state that the soft reset does not reproduce. `por_test` closes that gap. It does not use `drivers/bmp390/`, since `bm_bmp390_init` soft-resets internally. It reads `CHIP_ID`, `OSR`, `PWR_CTRL`, `ERR_REG`, and `EVENT` with raw `bm_i2c_write_read` calls before anything is written to the sensor. It then writes a non-default `OSR`, issues a soft reset, and reads the same registers again. Every destination byte is poisoned before its read.
+
+A cold read is only meaningful if the sensor actually lost power, so the test carries its own control. Its last step writes a sentinel, `OSR = 0x15`, which survives an MCU reset or reflash but not a sensor power loss. A run is accepted as cold only if the sentinel is absent and `EVENT.por_detected` is set on the first read. Neither check is sufficient alone. `por_detected` is also set by a soft reset from an earlier image and stays set until `EVENT` is read, and the sentinel is only armed if a previous `por_test` run wrote it.
+
+| Run | Cold `OSR` | Cold `EVENT` | Sentinel absent | `por_detected` | Accepted |
+|---|---|---|---|---|---|
+| Reset button (B2), sensor stays powered | `0x15` | `0x00` | FAIL | FAIL | No (control) |
+| Nucleo USB unplugged, debug probe connected | `0x15` | `0x00` | FAIL | FAIL | No |
+| Sensor-only power cycle, MCU held in reset | `0x00` | `0x01` | PASS | PASS | Yes |
+
+The reset-button run confirms the control rejects a sensor that kept its state. The second run shows that unplugging the Nucleo is not a power cycle while the debug probe is attached. The sensor kept the sentinel, most likely back-powered through the probe's idle-high UART TX and SWD lines, and the BMP390's few-µA sleep current is small enough for that path to sustain. The accepted run removed the sensor's VIN for about 10 s while B2 held the MCU in reset. Holding reset matters: in reset the STM32's pins are high-impedance, but a running I2C driver enables internal pull-ups on SDA and SCL (`platform/stm32g4/i2c/i2c.c`) that would back-power the sensor through its bus pins.
+
+The same procedure was then run on a BMP388, which shares the BMP390's register map. Accepted runs:
+
+| Part | `CHIP_ID` | Datasheet `OSR` default | Cold power-on `OSR` | `OSR` after soft reset | `PWR_CTRL` cold / reset |
+|---|---|---|---|---|---|
+| BMP390 | `0x60` | `0x02` (DS002, Table 25) | `0x00` | `0x00` | `0x00` / `0x00` |
+| BMP388 | `0x50` | `0x02` (BST-BMP388-DS001-07, Table 24) | `0x00` | `0x00` | `0x00` / `0x00` |
+
+Reference: Bosch BMP388 datasheet, BST-BMP388-DS001-07, Revision 1.7 (11/2020), Table 24 memory map.
+
+On both parts the soft reset took `OSR` from the written `0x15` back to `0x00`, `STATUS` read `0x10` (`cmd_rdy`) after it, and `por_detected` was set again by the reset. Power-on and soft reset produce the same `OSR`, so the discrepancy is not a difference between the two reset paths: each device powers up at `0x00` where its datasheet documents `0x02`. `PWR_CTRL` matches the datasheet on both.
+
+Two parts from the same family disagreeing with their datasheets in the same way points toward the documentation rather than a property of one unit, but it is one unit of each part, and `REV_ID` has not been recorded for either. The consequence for the driver stands regardless: a BMP390 that powers up at the documented `0x02` would fail `bm_bmp390_soft_reset`'s exact-value check, and with it `bm_bmp390_init`.
+
+On both parts, the first boot after a sensor-only power cycle NAKed on the `CHIP_ID` read, and the next B2 reset read normally. A NAKed read writes nothing to the sensor, so the following run is still a valid cold capture. The cause has not been investigated.
 
 The observed values are named constants in `bmp390_reg.h`, annotated with their provenance and shared by the driver, the on-target test, and the host-side fake.
 
