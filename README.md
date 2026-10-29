@@ -1,6 +1,6 @@
 # Bare-Metal Drivers
 
-![CI](https://github.com/MargXX/Bare-Metal-Drivers/actions/workflows/build.yml/badge.svg)
+[![RP2040 Build](https://github.com/MargXX/Bare-Metal-Drivers/actions/workflows/rp2040.yml/badge.svg)](https://github.com/MargXX/Bare-Metal-Drivers/actions/workflows/rp2040.yml) [![STM32G4 Build](https://github.com/MargXX/Bare-Metal-Drivers/actions/workflows/stm32g4.yml/badge.svg)](https://github.com/MargXX/Bare-Metal-Drivers/actions/workflows/stm32g4.yml) [![Host Unit Tests](https://github.com/MargXX/Bare-Metal-Drivers/actions/workflows/host-tests.yml/badge.svg)](https://github.com/MargXX/Bare-Metal-Drivers/actions/workflows/host-tests.yml)
 
 A bare-metal driver library in C for ARM Cortex-M. The RP2040 drivers are written from scratch with no vendor HAL: vendor headers supply register addresses and bitfield names only, and every register value written is derived from the reference manual.
 
@@ -61,7 +61,9 @@ Interrupt ordering and reserved-slot positions were cross-checked against ST's o
 Bare-Metal-Drivers/
 ├── .github/
 │   └── workflows/
-│       └── build.yml
+│       ├── rp2040.yml
+│       ├── stm32g4.yml
+│       └── host-tests.yml
 ├── .gitignore
 ├── CMakeLists.txt              ARM project; PLATFORM selection + validation
 ├── pico_sdk_import.cmake
@@ -380,7 +382,7 @@ The fake's model of device behaviour is itself derived from the datasheet. The r
 
 ### Layer 3: continuous integration
 
-`.github/workflows/build.yml` runs three jobs on every push:
+Three workflows in `.github/workflows/` run on every push, one per job, so each has its own status badge:
 
 - **RP2040 Build**: installs the ARM toolchain, clones the pinned SDK, and cross-compiles every target.
 - **STM32G4 Build**: installs the ARM toolchain and cross-compiles every STM32 target, including the vendored HAL. No SDK clone is needed.
